@@ -1,0 +1,37 @@
+#! /usr/bin/env perl6
+
+use v6.c;
+
+constant term:<ANSI-CLEAR-LINE> = "\e[1F\e[0K";
+
+subset Seconds of Numeric;
+
+my %unit-multipliers = 'd' => 60*60*24, 'h' => 60*60, 'm' => 60, 's' => 1;
+
+multi sub pretty-print(Seconds $seconds is copy --> Str) {
+    my @ret;
+    for %unit-multipliers.sort(-*.value) -> (:key($unit), :value($multiplier)) {
+        @ret.push: $seconds div $multiplier ~ $unit if $seconds div $multiplier;
+        $seconds = $seconds % $multiplier;
+    }
+    @ret.join: ' ';
+}
+
+multi sub MAIN(Int $seconds) {
+    MAIN($seconds ~ 's');
+}
+
+multi sub MAIN(*@timicles) {
+    my Seconds $to-wait = [+] @timicles».split(/\d+/, :v).map(-> [$,Int(Any) $count, Str(Any) $unit] { %unit-multipliers{$unit} * $count });
+
+    react {
+        whenever Promise.in($to-wait) {
+            exit 0;
+        }
+
+        whenever Supply.interval(1) {
+            state $count-down = $to-wait;
+            say ANSI-CLEAR-LINE ~ pretty-print($count-down--);
+        }
+    }
+}
