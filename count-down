@@ -5,13 +5,14 @@ use v6.c;
 constant term:<ANSI-SAME-LINE> = "\e[1F\e[0K";
 
 subset Seconds of Numeric;
+my regex number { \d+ [ '.' \d+ ]? }
 
 my %unit-multipliers = 'd' => 60*60*24, 'h' => 60*60, 'm' => 60, 's' => 1;
 
 multi sub pretty-print(Seconds $seconds is copy --> Str) {
     my @ret;
     for %unit-multipliers.sort(-*.value) -> (:key($unit), :value($multiplier)) {
-        @ret.push: $seconds div $multiplier ~ $unit if $seconds div $multiplier;
+        @ret.push: $seconds.Int div $multiplier ~ $unit if $seconds.Int div $multiplier;
         $seconds = $seconds % $multiplier;
     }
     @ret.join: ' ';
@@ -21,8 +22,11 @@ multi sub MAIN(Seconds $to-wait) {
     MAIN($to-wait ~ 's');
 }
 
-multi sub MAIN(*@timicles) {
-    my Seconds $to-wait = [+] @timicles».split(/\d+/, :v).map(-> [$,Int(Any) $count, Str(Any) $unit] { %unit-multipliers{$unit} * $count });
+multi sub MAIN(*@timicles where .all ~~ /<number> <[dhms]>/) {
+    say @timicles.split(/<number>/, :v);
+    my Seconds $to-wait = [+] @timicles».\
+        split(/<number>/, :v).\
+        map(-> [$,Rat(Any) $count, Str(Any) $unit] { %unit-multipliers{$unit} * $count });
 
     react {
         whenever Promise.in($to-wait) {
