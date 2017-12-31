@@ -33,6 +33,10 @@ multi sub MAIN(*@timicles where .all ~~ /<number> <[dhms]>/) {
             exit 0;
         }
 
+        whenever signal(SIGINT) {
+            exit 1;
+        }
+
         whenever Supply.interval(1) {
             state $count-down = $to-wait;
             say ANSI-SAME-LINE ~ pretty-print($count-down--);
@@ -47,5 +51,7 @@ print Q:c:to/EOH/;
     Display a countdown for the specified time. Decimal fractions are supported for
     NUMBER and suffixes for [d]ays, [h]ours, [m]inutes or [s]econds are
     recognized. If the countdown is exhausted exit with 0.
+
+    Receiving SIGNIT will interrupt the countdown and result in exitcode 1.
 EOH
 }
