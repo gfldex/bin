@@ -2,7 +2,7 @@
 
 use v6.c;
 
-constant term:<ANSI-CLEAR-LINE> = "\e[1F\e[0K";
+constant term:<ANSI-SAME-LINE> = "\e[1F\e[0K";
 
 subset Seconds of Numeric;
 
@@ -17,8 +17,8 @@ multi sub pretty-print(Seconds $seconds is copy --> Str) {
     @ret.join: ' ';
 }
 
-multi sub MAIN(Int $seconds) {
-    MAIN($seconds ~ 's');
+multi sub MAIN(Seconds $to-wait) {
+    MAIN($to-wait ~ 's');
 }
 
 multi sub MAIN(*@timicles) {
@@ -31,7 +31,7 @@ multi sub MAIN(*@timicles) {
 
         whenever Supply.interval(1) {
             state $count-down = $to-wait;
-            say ANSI-CLEAR-LINE ~ pretty-print($count-down--);
+            say ANSI-SAME-LINE ~ pretty-print($count-down--);
         }
     }
 }
