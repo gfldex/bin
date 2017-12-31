@@ -23,7 +23,6 @@ multi sub MAIN(Seconds $to-wait) {
 }
 
 multi sub MAIN(*@timicles where .all ~~ /<number> <[dhms]>/) {
-    say @timicles.split(/<number>/, :v);
     my Seconds $to-wait = @timicles».\
         split(/<number>/, :v).\
         map(-> [$,Rat(Any) $count, Str(Any) $unit] --> Seconds { %unit-multipliers{$unit} * $count }).\
