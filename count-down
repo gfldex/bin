@@ -39,3 +39,13 @@ multi sub MAIN(*@timicles where .all ~~ /<number> <[dhms]>/) {
         }
     }
 }
+
+
+sub USAGE {
+print Q:c:to/EOH/;
+    Usage: {$*PROGRAM-NAME} NUMBER[SUFFIX]…
+    Display a countdown for the specified time. Decimal fractions are supported for
+    NUMBER and suffixes for [d]ays, [h]ours, [m]inutes or [s]econds are
+    recognized. If the countdown is exhausted exit with 0.
+EOH
+}
