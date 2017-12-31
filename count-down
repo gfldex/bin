@@ -51,6 +51,6 @@ print Q:c:to/EOH/;
     NUMBER and suffixes for [d]ays, [h]ours, [m]inutes or [s]econds are
     recognized. If the countdown is exhausted exit with 0.
 
-    Receiving SIGNIT will interrupt the countdown and result in exitcode 1.
+    Receiving SIGINT will interrupt the countdown and result in exitcode 1.
 EOH
 }
