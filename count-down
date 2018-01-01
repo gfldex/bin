@@ -18,6 +18,13 @@ multi sub pretty-print(Seconds $seconds is copy --> Str) {
     @ret.join: ' ';
 }
 
+multi sub MAIN(Str $timestamp where .Str ~~ /[\d]?\d ':' \d\d/) {
+    my ($hour, $minute) = $timestamp.split(':');
+    my $then = DateTime.new(:date(Date.today), :$hour, :$minute, :second(0), :timezone($*TZ));
+
+    MAIN( $then - DateTime.now );
+}
+
 multi sub MAIN(Seconds $to-wait) {
     MAIN($to-wait ~ 's');
 }
@@ -46,10 +53,13 @@ multi sub MAIN(*@timicles where .all ~~ /<number> <[dhms]>/) {
 
 sub USAGE {
 print Q:c:to/EOH/;
-    Usage: {$*PROGRAM-NAME} NUMBER[SUFFIX]…
+    Usage: {$*PROGRAM-NAME} NUMBER[SUFFIX]… | [HH:MM]
     Display a countdown for the specified time. Decimal fractions are supported for
     NUMBER and suffixes for [d]ays, [h]ours, [m]inutes or [s]econds are
     recognized. If the countdown is exhausted exit with 0.
+
+    If a HH:MM timespec is provided a count-down until the given system time in
+    the local timezone will be started.
 
     Receiving SIGNIT will interrupt the countdown and result in exitcode 1.
 EOH
