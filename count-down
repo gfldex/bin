@@ -61,6 +61,6 @@ print Q:c:to/EOH/;
     If a HH:MM timespec is provided a count-down until the given system time in
     the local timezone will be started.
 
-    Receiving SIGNIT will interrupt the countdown and result in exitcode 1.
+    Receiving SIGINT will interrupt the countdown and result in exitcode 1.
 EOH
 }
