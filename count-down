@@ -6,8 +6,9 @@ constant term:<ANSI-SAME-LINE> = "\e[1F\e[0K";
 
 subset Seconds of Numeric;
 my regex number { \d+ [ '.' \d+ ]? }
+my regex suffix { <[dhms]> };
 
-my %unit-multipliers = 'd' => 60*60*24, 'h' => 60*60, 'm' => 60, 's' => 1;
+constant %unit-multipliers = %{'d' => 60*60*24, 'h' => 60*60, 'm' => 60, 's' => 1};
 
 multi sub pretty-print(Seconds $seconds is copy --> Str) {
     my @ret;
@@ -18,8 +19,8 @@ multi sub pretty-print(Seconds $seconds is copy --> Str) {
     @ret.join: ' ';
 }
 
-multi sub MAIN(Str $timestamp where .Str ~~ /[\d]?\d ':' \d\d/) {
-    my ($hour, $minute) = $timestamp.split(':');
+multi sub MAIN(Str $until where .Str ~~ /[\d]?\d ':' \d\d/) {
+    my ($hour, $minute) = $until.split(':');
     my $then = DateTime.new(:date(Date.today), :$hour, :$minute, :second(0), :timezone($*TZ));
 
     MAIN( $then - DateTime.now );
@@ -29,11 +30,11 @@ multi sub MAIN(Seconds $to-wait) {
     MAIN($to-wait ~ 's');
 }
 
-multi sub MAIN(*@timicles where .all ~~ /<number> <[dhms]>/) {
-    my Seconds $to-wait = @timicles».\
-        split(/<number>/, :v).\
-        map(-> [$,Rat(Any) $count, Str(Any) $unit] --> Seconds { %unit-multipliers{$unit} * $count }).\
-        sum;
+multi sub MAIN(*@timicles where .all ~~ /<number> <suffix>/) {
+    my Seconds $to-wait = @timicles»\
+        .match(/<number> <suffix>+/)».hash\ # the +-quantifier is a workaround
+        .map(-> % ( Rat(Any) :$number, Str(Any) :$suffix ) { %unit-multipliers{$suffix} * $number })\
+        .sum;
 
     react {
         whenever Promise.in($to-wait) {
