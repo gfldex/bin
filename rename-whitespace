@@ -1,0 +1,14 @@
+#! /usr/bin/env perl6 
+
+use v6.c;
+
+sub rename-whitespace(IO::Path $dir where *.d){
+    dir($dir).race.map( -> $path {
+        rename-whitespace($path) if $path.d && $path.rw;
+        
+        $path.rename($path.Str.subst(' ', ' ', :g).subst("'", 'ʼ', :g)) if $path.d && $path.rw;
+        $path.rename($path.Str.subst(' ', ' ', :g).subst("'", 'ʼ', :g)) if $path.f && $path.rw;
+    });
+}
+
+rename-whitespace('.'.IO);
