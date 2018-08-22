@@ -9,6 +9,7 @@ my regex number { \d+ [ '.' \d+ ]? }
 my regex suffix { <[dhms]> };
 
 constant %unit-multipliers = %{'d' => 60*60*24, 'h' => 60*60, 'm' => 60, 's' => 1};
+constant %unit-check = %{ 'd' => -> { now.DateTime.day }, 'h' => -> { now.DateTime.hour }, 'm' => -> { now.DateTime.minute }, 's' => -> { now.DateTime.second } };
 
 multi sub pretty-print(Seconds $seconds is copy --> Str) {
     my @ret;
@@ -21,7 +22,20 @@ multi sub pretty-print(Seconds $seconds is copy --> Str) {
 
 multi sub MAIN(Str $until where .Str ~~ /[\d]?\d ':' \d\d/) {
     my ($hour, $minute) = $until.split(':');
-    my $then = DateTime.new(:date(Date.today), :$hour, :$minute, :second(0), :timezone($*TZ));
+    my $date = Date.today;
+    if $hour < now.DateTime.hour {
+        $date = $date.later(days => 1);
+    }
+
+    if $minute < now.DateTime.minute && $hour >= now.DateTime.hour {
+        $hour++;
+        if $hour >= 24 {
+            $hour--;
+            $date = $date.later(days => 1);
+        }
+    }
+
+    my $then = DateTime.new(:$date, :$hour, :$minute, :second(0), :timezone($*TZ));
 
     MAIN( $then - DateTime.now );
 }
@@ -60,7 +74,8 @@ print Q:c:to/EOH/;
     recognized. If the countdown is exhausted exit with 0.
 
     If a HH:MM timespec is provided a count-down until the given system time in
-    the local timezone will be started.
+    the local timezone will be started. For timespecs younger then the local
+    time, the next day at that time is assumed.
 
     Receiving SIGINT will interrupt the countdown and result in exitcode 1.
 EOH
