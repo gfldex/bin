@@ -8,6 +8,8 @@ sub rename-whitespace(IO::Path $dir where *.d){
         
         $path.rename($path.Str.subst(' ', ' ', :g).subst("'", 'ʼ', :g)) if $path.d && $path.rw;
         $path.rename($path.Str.subst(' ', ' ', :g).subst("'", 'ʼ', :g)) if $path.f && $path.rw;
+
+        CATCH { default { warn .Str } }
     });
 }
 
