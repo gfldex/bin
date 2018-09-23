@@ -22,20 +22,12 @@ multi sub pretty-print(Seconds $seconds is copy --> Str) {
 
 multi sub MAIN(Str $until where .Str ~~ /[\d]?\d ':' \d\d/) {
     my ($hour, $minute) = $until.split(':');
-    my $date = Date.today;
-    if $hour < now.DateTime.hour {
-        $date = $date.later(days => 1);
-    }
 
-    if $minute < now.DateTime.minute && $hour >= now.DateTime.hour {
-        $hour++;
-        if $hour >= 24 {
-            $hour--;
-            $date = $date.later(days => 1);
-        }
+    my $today = Date.today;
+    my $then = DateTime.new(:date($today), :$hour, :$minute, :second(0), :timezone($*TZ));
+    if $then < DateTime.now {
+        $then.=later(:day(1));
     }
-
-    my $then = DateTime.new(:$date, :$hour, :$minute, :second(0), :timezone($*TZ));
 
     MAIN( $then - DateTime.now );
 }
