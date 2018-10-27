@@ -1,0 +1,3 @@
+#! /bin/sh
+
+mplayer -volume 90 -cache 128 -cache-min 99 http://as-hls-ww-live.bbcfmt.hs.llnwd.net/pool_27/live/bbc_world_service/bbc_world_service.isml/bbc_world_service-audio%3d48000.norewind.m3u8

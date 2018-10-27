@@ -1,0 +1,3 @@
+#! /bin/sh
+
+mplayer -cache 128 -cache-min 99 http://orion.shoutca.st:8165

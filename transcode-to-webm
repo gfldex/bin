@@ -1,0 +1,11 @@
+#! /bin/sh
+
+INPUT=$1
+OUTPUT=${INPUT%%.*}.webm
+
+# ffmpeg -i "$INPUT" -threads 8 -c:v libvpx -quality best -cpu-used 0 -b:v 3M -maxrate 4M -bufsize 8M -pass 1 -an -threads 8 -y -f webm /dev/null
+# ffmpeg -i "$INPUT" -threads 1 -c:v libvpx -quality best -b:v 3M -maxrate 4M -bufsize 8M -pass 2 -c:a libvorbis -threads 14 -y -f webm $OUTPUT
+ffmpeg -i "$INPUT" -c:v libvpx-vp9 -c:v libvpx-vp9 -pass 1 -b:v 1000K -threads 16 -speed 4 -tile-columns 6 -frame-parallel 1 -auto-alt-ref 1 -lag-in-frames 25 -g 9999 -aq-mode 0 -an -y -f webm /dev/null
+ffmpeg -i "$INPUT" -c:v libvpx-vp9 -pass 2 -b:v 1000K -threads 16 -speed 0 -tile-columns 6 -frame-parallel 1 -auto-alt-ref 1 -lag-in-frames 25 -g 9999 -aq-mode 0 -c:a libopus -b:a 64k -y -f webm $OUTPUT
+
+say "transcoding finished" &

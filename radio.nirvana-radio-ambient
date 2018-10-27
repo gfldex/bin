@@ -1,0 +1,3 @@
+#! /bin/sh
+
+mplayer -cache 128 -cache-min 99 http://radio.108.pl:8006/ambient.ogg

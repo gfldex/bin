@@ -1,0 +1,3 @@
+#! /bin/sh
+
+mplayer -volume 52 http://stream.drumandbass.fm:9002

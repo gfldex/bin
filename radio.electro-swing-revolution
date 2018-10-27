@@ -1,0 +1,3 @@
+#! /bin/sh
+
+mplayer "https://streamer.radio.co/s2c3cc784b/listen"
