@@ -1,0 +1,16 @@
+#! /usr/bin/env perl6
+
+constant \NL = "\n";
+
+# my $lines = qx⟨aspell -d en dump master⟩;
+my $words = slurp('/usr/share/dict/words').words.cache;
+
+my \p1 = start my @adjectives = $words.grep({/ly$/}).pick(100);
+my \p2 = start my @verbs = $words.grep({/ed$/}).pick(100);
+my \p3 = start my @nouns = $words.grep({!/ly$/ & !/\'s$/ & !/ing$/ & !/ed$/}).pick(100);
+await p1, p2, p3;
+
+say @adjectives, NL;
+say @verbs, NL;
+say @nouns, NL;
+
