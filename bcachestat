@@ -24,24 +24,21 @@ sub bcache-caches() {
     dir('/sys/fs/bcache/')».basename.grep: *.contains('-')
 }
 
-subset Dev of Str;
-subset Cache of Str;
-
 my @stats = 
-    'dirty data', -> Dev $dev { slurp("/sys/block/$dev/bcache/dirty_data") },
-    'hit ratio', -> Cache $cache { 
+    'dirty data', -> $dev { slurp("/sys/block/$dev/bcache/dirty_data") },
+    'hit ratio', -> $cache { 
                      slurp("/sys/fs/bcache/$cache/stats_total/cache_hit_ratio").chomp ~ '%',
                      slurp("/sys/fs/bcache/$cache/stats_day/cache_hit_ratio").chomp ~ '%',
                      slurp("/sys/fs/bcache/$cache/stats_hour/cache_hit_ratio").chomp ~ '%',
                      slurp("/sys/fs/bcache/$cache/stats_five_minute/cache_hit_ratio").chomp ~ '%'
                  },
-    'bypassed',  -> Cache $cache {
+    'bypassed',  -> $cache {
                      slurp("/sys/fs/bcache/$cache/stats_total/bypassed").chomp,      
                      slurp("/sys/fs/bcache/$cache/stats_day/bypassed").chomp,
                      slurp("/sys/fs/bcache/$cache/stats_hour/bypassed").chomp,
                      slurp("/sys/fs/bcache/$cache/stats_five_minute/bypassed").chomp
                  },
-    'cache available', -> Cache $cache {
+    'cache available', -> $cache {
                            slurp("/sys/fs/bcache/$cache/cache_available_percent").chomp ~ '%'
                        }
     ;
