@@ -41,7 +41,9 @@ my @stats =
                  },
     'cache available', -> $cache {
                            slurp("/sys/fs/bcache/$cache/cache_available_percent").chomp ~ '%'
-                       }
+                       },
+'written to cache', -> $cache { slurp("/sys/fs/bcache/$cache/cache0/written").chomp },
+'btree written', -> $cache { slurp("/sys/fs/bcache/$cache/cache0/btree_written").chomp }
     ;
 
 multi sub MAIN() {
