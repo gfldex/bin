@@ -25,7 +25,8 @@ sub bcache-caches() {
 }
 
 my @stats = 
-    'dirty data', -> $dev { slurp("/sys/block/$dev/bcache/dirty_data") },
+    'cache state', -> $dev { slurp("/sys/block/$dev/bcache/state").chomp  },
+    'dirty data', -> $dev { slurp("/sys/block/$dev/bcache/dirty_data").chomp  },
     'hit ratio', -> $cache { 
                      slurp("/sys/fs/bcache/$cache/stats_total/cache_hit_ratio").chomp ~ '%',
                      slurp("/sys/fs/bcache/$cache/stats_day/cache_hit_ratio").chomp ~ '%/d',
@@ -53,6 +54,7 @@ multi sub MAIN() {
             }
         }
     }
+    put "";
     for bcache-caches() -> $cache {
         say BOLD $cache, ':';
         with $cache {
