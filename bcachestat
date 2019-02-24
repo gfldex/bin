@@ -1,6 +1,7 @@
 #! /usr/bin/env perl6
 
 use v6.d;
+use Term::ReadKey;
 
 our &BOLD = sub (*@s) {
     "\e[1m{@s.join('')}\e[0m"
@@ -70,7 +71,12 @@ multi sub MAIN() {
 }
 
 multi sub MAIN($delay) {
-    react whenever Supply.interval($delay) {
-        MAIN();
+    react {
+        whenever Supply.interval($delay) {
+            MAIN();
+        }
+        whenever key-pressed(:!echo) {
+            when 'q' | 'Q' { done }
+        }
     }
 }
