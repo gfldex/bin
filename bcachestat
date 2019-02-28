@@ -49,8 +49,11 @@ my @stats =
     ;
 
 multi sub MAIN() {
+    my %cache-mapping;
     for bcache-devs() -> $dev {
         with $dev {
+            %cache-mapping{"/sys/block/$dev/bcache/cache".IO.resolve.basename}.push: .Str;
+
             say BOLD $dev, ':';
             for @stats -> $name, &f {
                 next unless &f.signature.params».name eq '$dev';
@@ -60,8 +63,10 @@ multi sub MAIN() {
     }
     put "";
     for bcache-caches() -> $cache {
+        my $attached-to = quietly %cache-mapping{$cache}.join(' ') || 'detached';
         say BOLD $cache, ':';
         with $cache {
+            say "\t", 'serving: ', $attached-to;
             for @stats -> $name, &f {
                 next unless &f.signature.params».name eq '$cache';
                 put "\t", $name, ': ', .&f
