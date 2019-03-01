@@ -26,6 +26,7 @@ my @stats =
     'cache mode', -> $dev { slurp("/sys/block/$dev/bcache/cache_mode").chomp ~~ /'[' (\w+) ']'/; $0 },
     'dirty data', -> $dev { slurp("/sys/block/$dev/bcache/dirty_data").chomp  },
     'keep dirty', -> $dev { slurp("/sys/block/$dev/bcache/writeback_percent").chomp ~ '%'  },
+    'devices', -> $dev { dir("/sys/block/$dev/slaves/")».basename.chomp.join(' ') },
     'device', -> $cache {
         my @devs;
         for 0..∞ -> $i {
@@ -56,7 +57,7 @@ my @stats =
 
 multi sub MAIN() {
     my %cache-mapping;
-    for bcache-devs -> $dev {
+    for bcache-devs.cache -> $dev {
         with $dev {
             %cache-mapping{"/sys/block/$dev/bcache/cache".IO.resolve.basename}.push: .Str;
 
@@ -67,8 +68,7 @@ multi sub MAIN() {
             }
         }
     }
-    put "";
-    for bcache-caches -> $cache {
+    for bcache-caches.cache -> $cache {
         my $attached-to = quietly %cache-mapping{$cache}.join(' ') || 'detached';
         say BOLD $cache, ':';
         with $cache {
@@ -85,6 +85,7 @@ multi sub MAIN($delay) {
     react {
         whenever Supply.interval($delay) {
             MAIN();
+            put "";
         }
         whenever key-pressed(:!echo) {
             when 'q' | 'Q' { done }
