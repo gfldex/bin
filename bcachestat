@@ -17,40 +17,45 @@ our &RESET = sub (*@s) {
 
 &BOLD = &RED = &RESET = sub (Stringy $s) { $s } unless $*OUT.t;
 
-sub bcache-devs(){
-    dir('/sys/block/')».basename.grep: *.starts-with('bcache')
-}
+constant \bcache-devs = gather for dir('/sys/block/') { .basename.take if .basename.starts-with('bcache') }
 
-sub bcache-caches() {
-    dir('/sys/fs/bcache/')».basename.grep: *.contains('-')
-}
+constant \bcache-caches = gather for dir('/sys/fs/bcache/') { .basename.take if .basename.contains('-') }
 
 my @stats = 
     'cache state', -> $dev { slurp("/sys/block/$dev/bcache/state").chomp  },
     'cache mode', -> $dev { slurp("/sys/block/$dev/bcache/cache_mode").chomp ~~ /'[' (\w+) ']'/; $0 },
     'dirty data', -> $dev { slurp("/sys/block/$dev/bcache/dirty_data").chomp  },
+    'device', -> $cache {
+        my @devs;
+        for 0..∞ -> $i {
+            my $path = "/sys/fs/bcache/$cache/cache{$i}".IO;
+            last unless $path.e;
+            @devs.push: $path.resolve.Str.split('/')[*-2]
+        }
+        @devs.join(' ')
+    },
     'hit ratio', -> $cache { 
-                     slurp("/sys/fs/bcache/$cache/stats_total/cache_hit_ratio").chomp ~ '%',
-                     slurp("/sys/fs/bcache/$cache/stats_day/cache_hit_ratio").chomp ~ '%/d',
-                     slurp("/sys/fs/bcache/$cache/stats_hour/cache_hit_ratio").chomp ~ '%/h',
-                     slurp("/sys/fs/bcache/$cache/stats_five_minute/cache_hit_ratio").chomp ~ '%/5min'
-                 },
+        slurp("/sys/fs/bcache/$cache/stats_total/cache_hit_ratio").chomp ~ '%',
+        slurp("/sys/fs/bcache/$cache/stats_day/cache_hit_ratio").chomp ~ '%/d',
+        slurp("/sys/fs/bcache/$cache/stats_hour/cache_hit_ratio").chomp ~ '%/h',
+        slurp("/sys/fs/bcache/$cache/stats_five_minute/cache_hit_ratio").chomp ~ '%/5min'
+    },
     'bypassed',  -> $cache {
-                     slurp("/sys/fs/bcache/$cache/stats_total/bypassed").chomp,      
-                     slurp("/sys/fs/bcache/$cache/stats_day/bypassed").chomp ~ '/d',
-                     slurp("/sys/fs/bcache/$cache/stats_hour/bypassed").chomp ~ '/h',
-                     slurp("/sys/fs/bcache/$cache/stats_five_minute/bypassed").chomp ~ '/5min'
-                 },
+        slurp("/sys/fs/bcache/$cache/stats_total/bypassed").chomp,      
+        slurp("/sys/fs/bcache/$cache/stats_day/bypassed").chomp ~ '/d',
+        slurp("/sys/fs/bcache/$cache/stats_hour/bypassed").chomp ~ '/h',
+        slurp("/sys/fs/bcache/$cache/stats_five_minute/bypassed").chomp ~ '/5min'
+    },
     'cache available', -> $cache {
-                           slurp("/sys/fs/bcache/$cache/cache_available_percent").chomp ~ '%'
-                       },
+        slurp("/sys/fs/bcache/$cache/cache_available_percent").chomp ~ '%'
+    },
     'written to cache', -> $cache { slurp("/sys/fs/bcache/$cache/cache0/written").chomp },
-    'btree written', -> $cache { slurp("/sys/fs/bcache/$cache/cache0/btree_written").chomp }
-    ;
+    'btree written', -> $cache { slurp("/sys/fs/bcache/$cache/cache0/btree_written").chomp },
+;
 
 multi sub MAIN() {
     my %cache-mapping;
-    for bcache-devs() -> $dev {
+    for bcache-devs -> $dev {
         with $dev {
             %cache-mapping{"/sys/block/$dev/bcache/cache".IO.resolve.basename}.push: .Str;
 
@@ -62,7 +67,7 @@ multi sub MAIN() {
         }
     }
     put "";
-    for bcache-caches() -> $cache {
+    for bcache-caches -> $cache {
         my $attached-to = quietly %cache-mapping{$cache}.join(' ') || 'detached';
         say BOLD $cache, ':';
         with $cache {
