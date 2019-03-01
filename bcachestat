@@ -25,6 +25,7 @@ my @stats =
     'cache state', -> $dev { slurp("/sys/block/$dev/bcache/state").chomp  },
     'cache mode', -> $dev { slurp("/sys/block/$dev/bcache/cache_mode").chomp ~~ /'[' (\w+) ']'/; $0 },
     'dirty data', -> $dev { slurp("/sys/block/$dev/bcache/dirty_data").chomp  },
+    'keep dirty', -> $dev { slurp("/sys/block/$dev/bcache/writeback_percent").chomp ~ '%'  },
     'device', -> $cache {
         my @devs;
         for 0..∞ -> $i {
