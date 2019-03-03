@@ -17,9 +17,11 @@ our &RESET = sub (*@s) {
 
 &BOLD = &RED = &RESET = sub (Stringy $s) { $s } unless $*OUT.t;
 
-constant \bcache-devs = gather for dir('/sys/block/') { .basename.take if .basename.starts-with('bcache') }
+sub cache(\seq) { seq.cache }
 
-constant \bcache-caches = gather for dir('/sys/fs/bcache/') { .basename.take if .basename.contains('-') }
+constant \bcache-devs = cache gather for dir('/sys/block/') { .basename.take if .basename.starts-with('bcache') }
+
+constant \bcache-caches = cache gather for dir('/sys/fs/bcache/') { .basename.take if .basename.contains('-') }
 
 my @stats = 
     'cache state', -> $dev { slurp("/sys/block/$dev/bcache/state").chomp  },
@@ -57,7 +59,7 @@ my @stats =
 
 multi sub MAIN() {
     my %cache-mapping;
-    for bcache-devs.cache -> $dev {
+    for bcache-devs -> $dev {
         with $dev {
             %cache-mapping{"/sys/block/$dev/bcache/cache".IO.resolve.basename}.push: .Str;
 
@@ -68,7 +70,7 @@ multi sub MAIN() {
             }
         }
     }
-    for bcache-caches.cache -> $cache {
+    for bcache-caches -> $cache {
         my $attached-to = quietly %cache-mapping{$cache}.join(' ') || 'detached';
         say BOLD $cache, ':';
         with $cache {
