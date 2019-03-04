@@ -2,6 +2,7 @@
 
 use v6.d;
 use Term::ReadKey;
+use JSON::Fast;
 
 our &BOLD = sub (*@s) {
     "\e[1m{@s.join('')}\e[0m"
@@ -26,6 +27,7 @@ sub is-bcache-dev($dev) {
 }
 
 sub bcache-devs() {
+    %cache-mapping := {};
     gather for dir('/sys/block/')».basename -> $dev {
         if is-bcache-dev($dev) {
             %cache-mapping{"/sys/block/$dev/bcache/cache".IO.resolve.basename}.push: $dev;
@@ -40,7 +42,7 @@ sub bcache-caches() {
 
 my @stats = 
     'cache state', -> $dev { slurp("/sys/block/$dev/bcache/state").chomp  },
-    'cache mode', -> $dev { slurp("/sys/block/$dev/bcache/cache_mode").chomp ~~ /'[' (\w+) ']'/; $0 },
+    'cache mode', -> $dev { slurp("/sys/block/$dev/bcache/cache_mode").chomp ~~ /'[' (\w+) ']'/; $0.Str },
     'dirty data', -> $dev { slurp("/sys/block/$dev/bcache/dirty_data").chomp  },
     'keep dirty', -> $dev { slurp("/sys/block/$dev/bcache/writeback_percent").chomp ~ '%'  },
     'devices', -> $dev { dir("/sys/block/$dev/slaves/")».basename.chomp.join(' ') },
@@ -77,35 +79,71 @@ my %stats = do for @stats -> $key, &value {
     slip $key.subst(' ', '-', :g), &value
 }
 
-multi sub MAIN() {
+
+multi sub MAIN(Bool :$text!) {
+    my @lines;
     for bcache-devs() -> $dev {
         with $dev {
-            say BOLD $dev, ':';
+            @lines.push: BOLD $dev ~ ':';
             for @stats -> $name, &f {
                 next unless &f.signature.params».name eq '$dev';
-                put "\t", $name, ': ', .&f
+                @lines.push: "\t" ~ $name ~ ': ' ~ .&f;
             }
         }
     }
     for bcache-caches() -> $cache {
-        say BOLD $cache, ':';
+        @lines.push: BOLD $cache ~ ':';
         with $cache {
             for @stats -> $name, &f {
                 next unless &f.signature.params».name eq '$cache';
-                put "\t", $name, ': ', .&f
+                @lines.push: "\t" ~ $name ~ ': ' ~ .&f;
             }
         }
     }
+    @lines.join("\n")
+}
+ 
+multi sub MAIN(Bool :$perl!) {
+    my $top;
+    for bcache-devs() -> $dev {
+        my $devs;
+        with $dev {
+            for @stats -> $name, &f {
+                next unless &f.signature.params».name eq '$dev';
+                $devs.push: $name => .&f;
+            }
+        }
+        $top.push: $dev => $devs;
+    }
+    for bcache-caches() -> $cache {
+        my $caches;
+        with $cache {
+            for @stats -> $name, &f {
+                next unless &f.signature.params».name eq '$cache';
+                $caches.push: $name => .&f;
+            }
+        }
+        $top.push: $cache => $caches;
+    }
+    $top
 }
 
-multi sub MAIN($delay) {
-    react {
-        whenever Supply.interval($delay) {
-            MAIN();
-            put "";
+multi sub MAIN(Bool :JSON(:$json)!) {
+    to-json(MAIN(:perl));
+}
+
+multi sub MAIN($delay?, Bool :$json) {
+    if $delay {
+        react {
+            whenever Supply.interval($delay) {
+                put $json ?? MAIN(:$json) !! MAIN(:text);
+                put "";
+            }
+            whenever key-pressed(:!echo) {
+                when 'q' | 'Q' { done }
+            }
         }
-        whenever key-pressed(:!echo) {
-            when 'q' | 'Q' { done }
-        }
+    } else {
+        put $json ?? MAIN(:json) !! MAIN(:text);
     }
 }
