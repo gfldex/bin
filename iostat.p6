@@ -22,11 +22,7 @@ my &BG-RED = sub (**@s) {
 &BOLD = &RED = &RESET = sub (Stringy $s) { $s } unless $*OUT.t;
 
 role Width[$w] { has $.width = $w }
-multi sub add-width(Width \s) { \s }
-multi sub add-width(Cool $s is copy) { $s = $s but Width[$s.chars] }
-multi sub add-width(Cool $s is copy, $real-width) { $s = $s but Width[$real-width] }
-
-# sub lfill($c, $should-width, $filler = ‚ ‘) { $filler x (($should-width - $c.width) max 0) ~ $c }
+sub add-width(Cool $s is copy) { $s but Width[$s.chars] }
 
 sub humanise(Numeric $n) {
     my $container = ($n.Int div 921 div 1024) 
@@ -42,8 +38,6 @@ sub lfill(Cool:D $c, $should-width, $filler = ‚ ‘) {
     my $bare-str = $c.subst(/\e ‚[‘ \d+ ‚m‘/, '', :g);
     $filler x (($should-width - $bare-str.chars) max 0) ~ $c
 }
-
-# say trans-lfill(RED(‚foo‘), 8);
 
 sub dirty-kb() {
     slurp('/proc/meminfo').lines.grep(*.starts-with(‚Dirty:‘)) ~~ /‚Dirty:‘ \s+ (\d+) \s ‚kB‘/;
