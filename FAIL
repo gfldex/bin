@@ -1,6 +1,6 @@
 #! /bin/sh
 
-echo "\e[31mFAIL\e[0m"
+echo "\e[31mFAIL\e[0m" $@
 beep\
     -f 500 -l 75 -D 100 -n -f 500 -l 75 -D 100 -n -f 500 -l 150 -D 100 -n -f 500 -l 75 -D 300 -n\
     -f 500 -l 75 -D 100 -n -f 500 -l 150 -D 300 -n\
