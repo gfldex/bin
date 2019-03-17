@@ -114,12 +114,12 @@ sub MAIN(Int $delay = 0, Str :$bind = '') {
             put "";
 
             my $width_0 = max @table[*;0]».chars;
-            my @mods = &humanise, &humanise, &alert.assuming(*, 1, ‚%‘), * ~ ‚ms‘, &humanise;
+            my @mods = &humanise, &humanise, &alert.assuming(*, 90, ‚%‘), * ~ ‚ms‘, &humanise;
             for @table.head {
                 put BOLD [.[0].fmt("% {$width_0}s"), .[1..∞]».fmt("% 8s")];
             }
             for @table[1..*] {
-                put [.[0].&lfill($width_0), |.[1..∞].hyper.&infix:<Z.>(@mods)».&lfill(8)];
+                put [.[0].&lfill($width_0), |.[1..∞].hyper(:batch(1), :degree($*KERNEL.cpu-cores)).&infix:<Z.>(@mods)».&lfill(8)];
             }
         }
         whenever json-stream $bcachestat-out, [ ['$', *, *], ] -> (:$key, :%value) {
@@ -150,19 +150,21 @@ sub MAIN(Int $delay = 0, Str :$bind = '') {
                         given $0.Str {
                             when ‚/‘ {
                                 $conn.print: HTTP-HEADER;
-                                for @history -> @record {
-                                    my @ram = @record[0];
-                                    my @devices = @record[1];
-                                    $conn.print: ( @ram[0], |(<cached: dirty pages: writeback:> Z @ram[1..∞]».&humanise) ).join(WS) ~ NL;
+                                my @str = @history.hyper.map: -> @record {
+                                     my $str;
+                                     my @ram = @record[0];
+                                     my @devices = @record[1];
+                                     $str ~= ( @ram[0], |(<cached: dirty pages: writeback:> Z @ram[1..∞]».&humanise) ).join(WS) ~ NL;
 
-                                    my $width_0 = max @devices[*;0]».chars;
-                                    my @mods = &humanise, &humanise, * ~ ‚%‘, * ~ ‚ms‘, &humanise;
-                                    for @devices {
-                                        $conn.print: [.[0].&lfill($width_0), |.[1..∞].hyper.&infix:<Z.>(@mods)».&lfill(8)] ~ NL;
-                                    }
+                                     my $width_0 = max @devices[*;0]».chars;
+                                     my @mods = &humanise, &humanise, * ~ ‚%‘, * ~ ‚ms‘, &humanise;
+                                     for @devices {
+                                         $str ~= [.[0].&lfill($width_0), |.[1..∞].&infix:<Z.>(@mods)».&lfill(8)] ~ NL;
+                                     }
 
-                                    $conn.print: NL;
+                                     $str ~= NL
                                 }
+                                $conn.print($_) for @str;
                                 $conn.close;
                                 done;
                             }
