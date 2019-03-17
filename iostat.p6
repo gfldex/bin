@@ -69,9 +69,8 @@ constant NL = "\n";
 constant TAB = "\t";
 constant WS = " ";
 constant HTTP-HEADER = ("HTTP/1.1 200 OK", "Content-Type: text/plain; charset=utf-8", "Content-Encoding: UTF-8", "", "").join(CRLF);
-# FIXME
-constant term:<HTTP-HEADER-404> = "HTTP/1.1 404 Not Found", "Content-Type: text/plain; charset=UTF-8", "Content-Encoding: UTF-8", "";
-constant term:<HTTP-HEADER-501> = "HTTP/1.1 501 Internal Server Error", "Content-Type: text/plain; charset=utf-8", "Content-Encoding: utf-8", "";
+constant term:<HTTP-HEADER-404> = ("HTTP/1.1 404 Not Found", "Content-Type: text/plain; charset=UTF-8", "Content-Encoding: UTF-8", "", "").join(CRLF);
+constant term:<HTTP-HEADER-501> = ("HTTP/1.1 501 Internal Server Error", "Content-Type: text/plain; charset=utf-8", "Content-Encoding: utf-8", "", "").join(CRLF);
 
 sub MAIN(Int $delay = 0, Str :$bind = '') {
     my $iostat = Proc::Async.new: 'iostat', <-o JSON -x -k>, $delay;
@@ -110,11 +109,11 @@ sub MAIN(Int $delay = 0, Str :$bind = '') {
             @history.push: ((DateTime.now,cached-kb, dirty-kb, writeback-kb), @table[1..*]);
             @history.shift if @history > MAX-HISTORY;
 
-            my $width_0 = max @table[*;0]».chars;
             put ‚cached: ‘, humanise(cached-kb);
             put ‚dirty pages: ‘, humanise(dirty-kb), ‚ writeback: ‘, humanise(writeback-kb);
             put "";
 
+            my $width_0 = max @table[*;0]».chars;
             my @mods = &humanise, &humanise, &alert.assuming(*, 1, ‚%‘), * ~ ‚ms‘, &humanise;
             for @table.head {
                 put BOLD [.[0].fmt("% {$width_0}s"), .[1..∞]».fmt("% 8s")];
@@ -168,7 +167,7 @@ sub MAIN(Int $delay = 0, Str :$bind = '') {
                                 done;
                             }
                             when ‚/tab‘ {
-                                $conn.print: HTTP-HEADER ~ CRLF x 2;
+                                $conn.print: HTTP-HEADER;
                                 for @history -> $line {
                                     $conn.print: $line[*;*]».join(TAB).join(TAB) ~ NL;
                                 }
@@ -176,8 +175,8 @@ sub MAIN(Int $delay = 0, Str :$bind = '') {
                                 done;
                             }
                             default {
-                                $conn.print: HTTP-HEADER-404 ~ CRLF ~ CRLF;
-                                $conn.print: „Resource {.Str} not found.“;
+                                $conn.print: HTTP-HEADER-404;
+                                $conn.print: „Resource {.Str} not found. Supported resources: / /tab“;
                                 $conn.close;
                                 done;
                             }
@@ -186,7 +185,7 @@ sub MAIN(Int $delay = 0, Str :$bind = '') {
 
                     CATCH {
                         default {
-                            $conn.print: join('', HTTP-HEADER-501 »~» CRLF);
+                            $conn.print: HTTP-HEADER-501;
                             $conn.print: ‚501 Internal Server Error‘ ~ NL ~ NL;
                             $conn.print: .^name ~ ': ' ~ .Str ~ NL ~ .backtrace;
                             $conn.close;
