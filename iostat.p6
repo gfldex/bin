@@ -90,7 +90,7 @@ sub MAIN(Int $delay = 0, Str :$bind = '') {
             put "" if $++;
             my @table = $[<device read/s write/s util latency dirty>];
             for @value -> %h {
-                my ($device, $rkb, $wkb, Num(Any) $util, $r_await, $w_await) = %h<disk_device rkB/s wkB/s util r_await w_await>;
+                my (Str:D $device, Num:D(Cool) $rkb, Num:D(Cool) $wkb, Num:D(Cool) $util, Num:D(Cool) $r_await, Num:D(Cool) $w_await) = %h<disk_device rkB/s wkB/s util r_await w_await>;
                 my $bcache-dirty = %bcache-dirty{$device} // '';
                 if $bcache-dirty ~~ /(\d+ '.' \d+) ('G' || 'M' || 'k')/ {
                     $bcache-dirty = $1 eq 'G'
@@ -119,7 +119,7 @@ sub MAIN(Int $delay = 0, Str :$bind = '') {
                 put BOLD [.[0].fmt("% {$width_0}s"), .[1..∞]».fmt("% 8s")];
             }
             for @table[1..*] {
-                put [.[0].&lfill($width_0), |.[1..∞].hyper(:batch(1), :degree($*KERNEL.cpu-cores)).&infix:<Z.>(@mods)».&lfill(8)];
+                put [.[0].&lfill($width_0), |.[1..∞].&infix:<Z.>(@mods)».&lfill(8)];
             }
         }
         whenever json-stream $bcachestat-out, [ ['$', *, *], ] -> (:$key, :%value) {
@@ -150,7 +150,7 @@ sub MAIN(Int $delay = 0, Str :$bind = '') {
                         given $0.Str {
                             when ‚/‘ {
                                 $conn.print: HTTP-HEADER;
-                                my @str = @history.hyper.map: -> @record {
+                                my @str = @history.hyper(:degree($*KERNEL.cpu-cores)).map: -> @record {
                                      my $str;
                                      my @ram = @record[0];
                                      my @devices = @record[1];
