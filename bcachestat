@@ -106,44 +106,45 @@ multi sub MAIN(Bool :$text!) {
 multi sub MAIN(Bool :$perl!) {
     my $top;
     for bcache-devs() -> $dev {
-        my $devs;
+        my %devs;
         with $dev {
             for @stats -> $name, &f {
                 next unless &f.signature.params».name eq '$dev';
-                $devs.push: $name => .&f;
+                %devs.push: $name => .&f;
             }
         }
-        $top.push: $dev => $devs;
+        $top.push: $dev => %devs;
     }
     for bcache-caches() -> $cache {
-        my $caches;
+        my %caches;
         with $cache {
             for @stats -> $name, &f {
                 next unless &f.signature.params».name eq '$cache';
-                $caches.push: $name => .&f;
+                %caches.push: $name => .&f;
             }
         }
-        $top.push: $cache => $caches;
+        $top.push: $cache => %caches;
     }
     $top
 }
 
-multi sub MAIN(Bool :JSON(:$json)!) {
-    to-json(MAIN(:perl));
-}
+constant NOP = Supplier.new;
 
 multi sub MAIN($delay?, Bool :$json) {
+    put '"bcache-stat": [' if $json;
     if $delay {
         react {
             whenever Supply.interval($delay) {
-                put $json ?? MAIN(:$json) !! MAIN(:text);
+                put $json ?? to-json(MAIN(:perl)) ~ ',' !! MAIN(:text);
                 put "";
+                $*OUT.flush;
             }
-            whenever key-pressed(:!echo) {
+            whenever $*OUT.t ?? key-pressed(:!echo) !! NOP {
                 when 'q' | 'Q' { done }
             }
         }
     } else {
-        put $json ?? MAIN(:json) !! MAIN(:text);
+        put $json ?? to-json(MAIN(:perl)) !! MAIN(:text);
     }
+    put ']' if $json;
 }
