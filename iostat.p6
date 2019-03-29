@@ -2,6 +2,7 @@
 use v6.c;
 
 use JSON::Stream;
+use Term::ReadKey;
 
 my &BOLD = sub (**@s) {
     "\e[1m{@s.join('')}\e[0m"
@@ -132,6 +133,9 @@ sub MAIN(Int $delay = 0, Str :$bind = '') {
         whenever $iostat-out.Promise {
             done;
         }
+        whenever key-pressed(:!echo) {
+            when 'q' | 'Q' { done }
+        }
         whenever signal(SIGINT, SIGTERM, SIGQUIT) {
             $iostat.kill(SIGINT);
             $bcachestat.kill(SIGINT);
@@ -140,7 +144,6 @@ sub MAIN(Int $delay = 0, Str :$bind = '') {
             # dd humanise(max @history[*;1][*;*;5]».Rat);
             done;
         }
-
         my $sock = do whenever IO::Socket::Async.listen($local-addr, $port) -> $conn {
             start react {
                 # with $conn { note BOLD [.peer-host, .peer-port] };
