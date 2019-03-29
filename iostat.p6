@@ -73,6 +73,8 @@ constant HTTP-HEADER = ("HTTP/1.1 200 OK", "Content-Type: text/plain; charset=ut
 constant term:<HTTP-HEADER-404> = ("HTTP/1.1 404 Not Found", "Content-Type: text/plain; charset=UTF-8", "Content-Encoding: UTF-8", "", "").join(CRLF);
 constant term:<HTTP-HEADER-501> = ("HTTP/1.1 501 Internal Server Error", "Content-Type: text/plain; charset=utf-8", "Content-Encoding: utf-8", "", "").join(CRLF);
 
+constant STAT-HEADING = <device read/s write/s util latency dirty>;
+
 sub MAIN(Int $delay = 0, Str :$bind = '') {
     my $iostat = Proc::Async.new: 'iostat', <-o JSON -x -k>, $delay;
     my $iostat-out = $iostat.stdout;
@@ -85,11 +87,12 @@ sub MAIN(Int $delay = 0, Str :$bind = '') {
 
     my $local-addr = $bind.split(':', :skip-empty)[0] // %*ENV<IOSTAT_P6_LISTEN> // ‚localhost‘;
     my $port = $bind.split(':', :skip-empty)[1] // %*ENV<IOSTAT_P6_PORT> // 0;
+    my @max-values;
 
     react {
         whenever json-stream $iostat-out, [ ['$', **, 'disk' ], ] -> (:$key, :@value) {
             put "" if $++;
-            my @table = $[<device read/s write/s util latency dirty>];
+            my @table = $[STAT-HEADING];
             for @value -> %h {
                 my (Str:D $device, Num:D(Cool) $rkb, Num:D(Cool) $wkb, Num:D(Cool) $util, Num:D(Cool) $r_await, Num:D(Cool) $w_await) = %h<disk_device rkB/s wkB/s util r_await w_await>;
                 my $bcache-dirty = %bcache-dirty{$device} // '';
@@ -107,8 +110,10 @@ sub MAIN(Int $delay = 0, Str :$bind = '') {
                 @table.push: [$device, $rkb, $wkb, $util, $await, $bcache-dirty];
             }
 
-            @history.push: ((DateTime.now,cached-kb, dirty-kb, writeback-kb), @table[1..*]);
+            @history.push: ((DateTime.now, cached-kb, dirty-kb, writeback-kb), @table[1..*]);
             @history.shift if @history > MAX-HISTORY;
+
+            @max-values = @max-values «max« [@table[1..*]];
 
             put ‚cached: ‘, humanise(cached-kb);
             put ‚dirty pages: ‘, humanise(dirty-kb), ‚ writeback: ‘, humanise(writeback-kb);
@@ -133,15 +138,30 @@ sub MAIN(Int $delay = 0, Str :$bind = '') {
         whenever $iostat-out.Promise {
             done;
         }
-        whenever key-pressed(:!echo) {
-            when 'q' | 'Q' { done }
+        constant NOP = Supplier.new;
+        whenever $*OUT.t ?? key-pressed(:!echo) !! NOP {
+            when 'q' | 'Q' { 
+                $iostat.kill(SIGINT);
+                $bcachestat.kill(SIGINT);
+                done
+            }
+            when 'm' | 'M' {
+                my @table = STAT-HEADING, @max-values;
+                my $width_0 = max @table[*;0]».chars;
+                my @mods = &humanise, &humanise, &alert.assuming(*, 90, ‚%‘), * ~ ‚ms‘, &humanise;
+                for @table.head {
+                    put BOLD [.[0].fmt("% {$width_0}s"), .[1..∞]».fmt("% 8s")];
+                }
+                for @table[1..*] {
+                    put [.[0].&lfill($width_0), |.[1..∞].&infix:<Z.>(@mods)».&lfill(8)];
+                }
+            }
         }
         whenever signal(SIGINT, SIGTERM, SIGQUIT) {
             $iostat.kill(SIGINT);
             $bcachestat.kill(SIGINT);
             $*OUT.close;
 
-            # dd humanise(max @history[*;1][*;*;5]».Rat);
             done;
         }
         my $sock = do whenever IO::Socket::Async.listen($local-addr, $port) -> $conn {
