@@ -76,6 +76,9 @@ constant term:<HTTP-HEADER-501> = ("HTTP/1.1 501 Internal Server Error", "Conten
 constant STAT-HEADING = <device read/s write/s util latency dirty>;
 
 sub MAIN(Int $delay = 0, Str :$bind = '') {
+    use Term::termios;
+    my $savedios := Term::termios.new(:fd($*IN.native-descriptor)).getattr;
+
     my $iostat = Proc::Async.new: 'iostat', <-o JSON -x -k>, $delay;
     my $iostat-out = $iostat.stdout;
     my $bcachestat = Proc::Async.new: 'bcachestat', <--json>, $delay;
@@ -113,7 +116,11 @@ sub MAIN(Int $delay = 0, Str :$bind = '') {
             @history.push: ((DateTime.now, cached-kb, dirty-kb, writeback-kb), @table[1..*]);
             @history.shift if @history > MAX-HISTORY;
 
-            @max-values = @max-values «max« [@table[1..*]];
+            quietly loop (my $y = 0; $y < +@table; $y++) {
+                loop (my $x = 0; $x < +@table[$y]; $x++) {
+                    @max-values[$y; $x] = @max-values[$y; $x] max @table[$y; $x];
+                }
+            }
 
             put ‚cached: ‘, humanise(cached-kb);
             put ‚dirty pages: ‘, humanise(dirty-kb), ‚ writeback: ‘, humanise(writeback-kb);
@@ -132,7 +139,6 @@ sub MAIN(Int $delay = 0, Str :$bind = '') {
             for %value -> (:$key, :$value ) {
                 next unless $key ~~ /bcache \d+/;
                 %bcache-dirty{$key} = $value{'dirty data'};
-                # dd %bcache, $value;
             }
         }
         whenever $iostat-out.Promise {
@@ -143,16 +149,23 @@ sub MAIN(Int $delay = 0, Str :$bind = '') {
             when 'q' | 'Q' { 
                 $iostat.kill(SIGINT);
                 $bcachestat.kill(SIGINT);
+                $savedios.setattr(:NOW);
                 done
             }
             when 'm' | 'M' {
-                my @table = STAT-HEADING, @max-values;
-                my $width_0 = max @table[*;0]».chars;
+                my @table = ('', 'peak' xx 5).flat, |@max-values;
+                # my @table = @max-values;
                 my @mods = &humanise, &humanise, &alert.assuming(*, 90, ‚%‘), * ~ ‚ms‘, &humanise;
-                for @table.head {
+                my $width_0 = max @table[*;0]».chars;
+                # my $width_0 = 10;
+
+                $savedios.setattr(:NOW);
+
+                put "";
+                for @table.head(2) {
                     put BOLD [.[0].fmt("% {$width_0}s"), .[1..∞]».fmt("% 8s")];
                 }
-                for @table[1..*] {
+                for @table[2..*] {
                     put [.[0].&lfill($width_0), |.[1..∞].&infix:<Z.>(@mods)».&lfill(8)];
                 }
             }
@@ -161,8 +174,9 @@ sub MAIN(Int $delay = 0, Str :$bind = '') {
             $iostat.kill(SIGINT);
             $bcachestat.kill(SIGINT);
             $*OUT.close;
+            $savedios.setattr(:NOW);
 
-            done;
+            done
         }
         my $sock = do whenever IO::Socket::Async.listen($local-addr, $port) -> $conn {
             start react {
