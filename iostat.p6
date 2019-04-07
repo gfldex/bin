@@ -75,6 +75,8 @@ constant term:<HTTP-HEADER-501> = ("HTTP/1.1 501 Internal Server Error", "Conten
 
 constant STAT-HEADING = <device read/s write/s util latency dirty>;
 
+constant MAX-HISTORY = 2880;
+
 sub MAIN(Int $delay = 0, Str :$bind = '') {
     use Term::termios;
     my $savedios := Term::termios.new(:fd($*IN.native-descriptor)).getattr;
@@ -86,7 +88,6 @@ sub MAIN(Int $delay = 0, Str :$bind = '') {
 
     my %bcache-dirty;
     my @history;
-    constant MAX-HISTORY = 1000;
 
     my $local-addr = $bind.split(':', :skip-empty)[0] // %*ENV<IOSTAT_P6_LISTEN> // ‚localhost‘;
     my $port = $bind.split(':', :skip-empty)[1] // %*ENV<IOSTAT_P6_PORT> // 0;
