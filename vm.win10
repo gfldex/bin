@@ -4,9 +4,11 @@ qemu-system-x86_64 -enable-kvm -m 8192 -cpu qemu64 -smp cores=4 \
 	-vnc 0.0.0.0:5 -device qemu-xhci,id=xhci -device usb-tablet \
 	-device usb-mtp,rootdir=/mnt/storage/vms/mtp -k de \
 	-device virtio-scsi-pci,id=scsi \
-	-device scsi-hd,drive=hd \
-	-drive if=none,id=hd,format=qcow2,file=/mnt/storage/vms/windows-10.qcow2,cache.no-flush=on,discard=unmap \
+	-drive format=qcow2,file=/mnt/storage/vms/windows-10.qcow2,cache.no-flush=on,discard=unmap \
 	-drive media=cdrom,file=/mnt/storage/vms/mtp/virtio-win-drivers-20120712-1.iso \
 	-net nic -net user,hostfwd=tcp::3390-:3389,hostfwd=udp::3390-:3389 \
 	-curses \
+	# -device virtio-scsi-pci,id=scsi \
+	# -device scsi-hd,drive=hd \
+	# -drive if=none,id=hd,format=qcow2,file=/mnt/storage/vms/windows-10.qcow2,cache.no-flush=on,discard=unmap \
 	# -drive format=qcow2,file=/mnt/storage/vms/windows-10.qcow2,cache.no-flush=on,discard=unmap \
