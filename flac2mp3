@@ -1,0 +1,7 @@
+#! /bin/bash
+
+for a in ./*.flac; do
+    avconv -n -nostats -loglevel info -i "$a" -codec:a libmp3lame -qscale:a 0 "${a[@]/%flac/mp3}"
+done
+
+

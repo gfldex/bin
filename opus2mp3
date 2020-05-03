@@ -1,0 +1,15 @@
+#! /bin/bash
+
+
+for a in ./*.opus; do
+    let counter=counter+1
+    echo $counter
+
+    avconv -n -nostats -loglevel info -i "$a" -codec:a libmp3lame -qscale:a 0 "${a[@]/%opus/mp3}" &
+
+    if [ $counter -gt 12 ]; then
+        wait -n
+        let counter=counter-1
+    fi
+done
+
