@@ -3,20 +3,27 @@
 use v6;
 use Shell::Piping;
 
-constant cores = $*KERNEL.cpu-cores - 1;
-constant NL = $?NL;
-my &RED = { "\e[31m$_\e[0m" };
-my &BOLD = { "\e[1m$_\e[0m" };
+multi sub MAIN(‚test‘, $dir = ‚.‘, Bool :$verbose?) {
 
-&RED = &BOLD = { $_ } unless $*OUT.t;
+    constant cores = $*KERNEL.cpu-cores - 1;
+    constant NL = $?NL;
+    my &RED = { "\e[31m$_\e[0m" };
+    my &BOLD = { "\e[1m$_\e[0m" };
 
-sub run-test(IO::Path $file where { .e & .f }) {
-    my @out;
-    my @err;
-    my $failed;
-    px«raku -Ilib $file» |» @out :stderr(@err) :done({$failed = .exitcodes.so});
+    &RED = &BOLD = { $_ } unless $*OUT.t;
 
-    („Testing: {$file}“.&BOLD, @out, @err».&RED).flat.join(NL);
+    sub run-test(IO::Path $file where { .e & .f }) {
+        my @out;
+        my @err;
+        my $failed;
+        px«raku -Ilib $file» |» @out :stderr(@err) :done({$failed = .exitcodes.so});
+
+        („Testing: {$file}“.&BOLD, @out, @err».&RED).flat.join(NL);
+    }
+
+    .put for dir(‚t/‘).grep(*.extension eq ‚t‘).sort.hyper(:batch(1), :degree(cores)).map(*.&run-test);
 }
 
-.put for dir(‚t/‘).grep(*.extension eq ‚t‘).sort.hyper(:batch(1), :degree(cores)).map(*.&run-test);
+multi sub MAIN() {
+    MAIN(‚test‘, ‚.‘);
+}
