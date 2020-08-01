@@ -23,7 +23,14 @@ multi sub MAIN(‚test‘, $dir = ‚.‘, Bool :$verbose?) {
         („Testing: {$file}“.&BOLD, @out, @err».&RED).flat.join(NL);
     }
 
-    .put for dir(‚t/‘).grep(*.extension eq ‚t‘).sort.hyper(:batch(1), :degree(cores)).map(*.&run-test);
+    my \test-files = gather {
+        for „$dir/t“.IO.d ?? „$dir/t“ !! $dir {
+            .take when .IO.extension eq ‚t‘ && !.IO.d;
+            .IO.dir()».&?BLOCK when .IO.d;
+        }
+    }
+
+    .put for test-files.sort.hyper(:batch(1), :degree(cores)).map(*.&run-test);
 
     exit $exitcode;
 }
