@@ -2,6 +2,7 @@
 
 use v6;
 use Shell::Piping;
+use Shell::Piping::Whereceptions;
 
 my int $exitcode = 0;
 
@@ -14,7 +15,7 @@ multi sub MAIN(‚test‘, $dir = ‚.‘, Bool :$verbose?) {
 
     &RED = &BOLD = { $_ } unless $*OUT.t;
 
-    sub run-test(IO::Path $file where { .e & .f }) {
+    sub run-test(IO::Path $file where &it-is-a-file) {
         my @out;
         my @err;
         my $failed;
@@ -25,6 +26,10 @@ multi sub MAIN(‚test‘, $dir = ‚.‘, Bool :$verbose?) {
 
     my \test-files = gather {
         for „$dir/t“.IO.d ?? „$dir/t“ !! $dir {
+            if .IO.l && !.IO.e {
+                warn „WARN: dangling symlink in ⟨$_⟩.“;
+                next;
+            }
             .take when .IO.extension eq ‚t‘ && !.IO.d;
             .IO.dir()».&?BLOCK when .IO.d;
         }
