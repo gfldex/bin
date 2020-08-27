@@ -64,12 +64,13 @@ my @ecosystems-commits = github-get-remote-commits(‚ugexe‘, ‚Perl6-ecosyst
 my ($youngest-commit, $oldest-commit) = @ecosystems-commits[0,*-1]».<sha>;
 
 my @ecosystems-old = fetch-ecosystem(:commit($oldest-commit));
-my @nameversions-old = @ecosystems-old.sort(*.<name>).map: { .<name> ~ ' ' ~ .<version> };
+# https://modules.raku.org/dist/LibXML:cpan:WARRINGD
+my @nameversions-old = @ecosystems-old.sort(*.<name>).map: { .<name> ~ ' ' ~ .<version> ~ ' https://modules.raku.org/search/?q=' ~ .<name> };
 
 # spurt("%*ENV<HOME>/tmp/ecosystem-{$monday-old.yyyy-mm-dd}.txt", @nameversions-old.join($?NL));
 
 my @ecosystems-young = fetch-ecosystem(:commit($youngest-commit));
-my @nameversions-young = @ecosystems-young.sort(*.<name>).map: { .<name> ~ ' ' ~ .<version> };
+my @nameversions-young = @ecosystems-young.sort(*.<name>).map: { .<name> ~ ' ' ~ .<version> ~ ' https://modules.raku.org/search/?q=' ~ .<name> };
 
 # spurt("%*ENV<HOME>/tmp/ecosystem-{$monday-young.yyyy-mm-dd}.txt", @nameversions-young.join($?NL));
 
