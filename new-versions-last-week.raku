@@ -4,6 +4,7 @@ use v6.d;
 # use META6::bin :HELPER;
 use Proc::Async::Timeout;
 use JSON::Fast;
+use Data::Dump::Tree;
 
 my $timeout = 60;
 
@@ -55,6 +56,9 @@ sub github-get-remote-commits($owner, $repo, :$since, :$until) is export(:GIT) {
     @response.flat
 }
 
+my %distros-old;
+my %distros-young;
+
 my $zero-hour = now.DateTime.truncated-to('day');
 my $monday-young = $zero-hour.earlier(:days($zero-hour.day-of-week - 1));
 my $monday-old = $monday-young.earlier(:7days);
@@ -64,12 +68,14 @@ my @ecosystems-commits = github-get-remote-commits(‚ugexe‘, ‚Perl6-ecosyst
 my ($youngest-commit, $oldest-commit) = @ecosystems-commits[0,*-1]».<sha>;
 
 my @ecosystems-old = fetch-ecosystem(:commit($oldest-commit));
-# https://modules.raku.org/dist/LibXML:cpan:WARRINGD
+.&normalize-meta6 for @ecosystems-old;
 my @nameversions-old = @ecosystems-old.sort(*.<name>).map: { .<name> ~ ' ' ~ .<version> ~ ' https://modules.raku.org/search/?q=' ~ .<name> };
+
 
 # spurt("%*ENV<HOME>/tmp/ecosystem-{$monday-old.yyyy-mm-dd}.txt", @nameversions-old.join($?NL));
 
 my @ecosystems-young = fetch-ecosystem(:commit($youngest-commit));
+.&normalize-meta6 for @ecosystems-young;
 my @nameversions-young = @ecosystems-young.sort(*.<name>).map: { .<name> ~ ' ' ~ .<version> ~ ' https://modules.raku.org/search/?q=' ~ .<name> };
 
 # spurt("%*ENV<HOME>/tmp/ecosystem-{$monday-young.yyyy-mm-dd}.txt", @nameversions-young.join($?NL));
@@ -78,4 +84,28 @@ our $new-versions-last-week is export = @nameversions-young ∖ @nameversions-ol
 
 sub MAIN {
     .say for $new-versions-last-week.keys;
+}
+
+sub normalize-meta6($_ is raw) is rw {
+    if none(.<source-url>, .<support><source>) {
+        # say 'bailing on:';
+        # .&ddt;
+        next;
+    }
+    .<source-url> := .<support><source> unless .<source-url>;
+
+    if .<source-url>.contains('//www.cpan.org') {
+        .<auth> = 'cpan:' ~ .<source-url>.split('/')[7];
+    } elsif none(.<auth>) && .<source-url>.contains('//github.com') {
+        .<auth> = 'github:' ~ .<source-url>.split('/')[3];
+    } elsif none(.<auth>) && .<source-url>.contains('//gitlab.com') {
+        .<auth> = 'gitlab:' ~ .<source-url>.split('/')[3];
+    } elsif none(.<auth>) && .<source-url>.contains('git@github.com') {
+        .<auth> = 'github:' ~ .<source-url>.split(</ :>)[1];
+    }
+
+    if ! all(.<name>, .<auth>, .<version>) {
+        say 'bailing on';
+        .&ddt;
+    }
 }
