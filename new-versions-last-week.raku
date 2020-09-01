@@ -6,6 +6,10 @@ use Proc::Async::Timeout;
 use JSON::Fast;
 use Data::Dump::Tree;
 
+
+constant term:<␣> = ' ';
+constant term:<¶> = $?NL;
+
 my $timeout = 60;
 
 sub fetch-ecosystem(:$verbose, :$cached, :$commit) {
@@ -56,8 +60,7 @@ sub github-get-remote-commits($owner, $repo, :$since, :$until) is export(:GIT) {
     @response.flat
 }
 
-my %distros-old;
-my %distros-young;
+my %distros;
 
 my $zero-hour = now.DateTime.truncated-to('day');
 my $monday-young = $zero-hour.earlier(:days($zero-hour.day-of-week - 1));
@@ -69,27 +72,38 @@ my ($youngest-commit, $oldest-commit) = @ecosystems-commits[0,*-1]».<sha>;
 
 my @ecosystems-old = fetch-ecosystem(:commit($oldest-commit));
 .&normalize-meta6 for @ecosystems-old;
-my @nameversions-old = @ecosystems-old.sort(*.<name>).map: { .<name> ~ ' ' ~ .<version> ~ ' https://modules.raku.org/search/?q=' ~ .<name> };
+my @nameversions-old = @ecosystems-old.sort(*.<name>).map: { 
+    my $key = .<name> ~ ' ' ~ .<version>;
+    %distros{$key} = $_;
+    $key
+};
 
-
-# spurt("%*ENV<HOME>/tmp/ecosystem-{$monday-old.yyyy-mm-dd}.txt", @nameversions-old.join($?NL));
+# spurt("%*ENV<HOME>/tmp/ecosystem-{$monday-old.yyyy-mm-dd}.txt", @nameversions-old.join(¶));
 
 my @ecosystems-young = fetch-ecosystem(:commit($youngest-commit));
 .&normalize-meta6 for @ecosystems-young;
-my @nameversions-young = @ecosystems-young.sort(*.<name>).map: { .<name> ~ ' ' ~ .<version> ~ ' https://modules.raku.org/search/?q=' ~ .<name> };
+my @nameversions-young = @ecosystems-young.sort(*.<name>).map: { 
+    my $key = .<name> ~ ' ' ~ .<version>;
+    %distros{$key} = $_;
+    $key
+};
 
-# spurt("%*ENV<HOME>/tmp/ecosystem-{$monday-young.yyyy-mm-dd}.txt", @nameversions-young.join($?NL));
+# spurt("%*ENV<HOME>/tmp/ecosystem-{$monday-young.yyyy-mm-dd}.txt", @nameversions-young.join(¶));
 
 our $new-versions-last-week is export = @nameversions-young ∖ @nameversions-old;
 
-sub MAIN {
-    .say for $new-versions-last-week.keys;
+sub MAIN(:v(:$verbose)) {
+    my $*verbose = $verbose;
+    for %distros{$new-versions-last-week.keys}.sort({.<authors> // .<author> // .<auth>}) {
+        put .<name> ~ ␣ ~ .<version>;
+            put ('https://modules.raku.org/search/?q=' ~ .<name>).indent(4);
+            put (.<source-url> // .<support><source>).indent(4);
+            put (.<authors> // .<author> // .<auth>)».?indent(4).join(';');
+    }
 }
 
 sub normalize-meta6($_ is raw) is rw {
     if none(.<source-url>, .<support><source>) {
-        # say 'bailing on:';
-        # .&ddt;
         next;
     }
     .<source-url> := .<support><source> unless .<source-url>;
@@ -104,7 +118,7 @@ sub normalize-meta6($_ is raw) is rw {
         .<auth> = 'github:' ~ .<source-url>.split(</ :>)[1];
     }
 
-    if ! all(.<name>, .<auth>, .<version>) {
+    if $*verbose && ! all(.<name>, .<auth>, .<version>) {
         say 'bailing on';
         .&ddt;
     }
