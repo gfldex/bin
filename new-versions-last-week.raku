@@ -93,6 +93,7 @@ our $new-versions-last-week is export = @nameversions-young ∖ @nameversions-ol
 
 sub MAIN(:v(:$verbose)) {
     my $*verbose = $verbose;
+
     for %distros{$new-versions-last-week.keys}.sort({.<authors> // .<author> // .<auth>}) {
         warn ‚WARN: no auth field in META6.json.‘ unless .<auth>;
         $_ = fetch-cpan-meta6(.<source-url>, .<auth>) if .<auth>.starts-with('cpan:'); 
@@ -101,7 +102,9 @@ sub MAIN(:v(:$verbose)) {
             .<author> = github-realname(.<auth>.split(':')[1]);
         }
 
-        put .<name> ~ ␣ ~ .<version> ~ ␣ ~ .<auth>;
+        .<new-module> = @ecosystems-old.grep(*.<name> eq .<name>).head.<version> ?? '' !! 'NEW MODULE';
+
+        put .<name> ~ ␣ ~ .<version> ~ ␣ ~ .<auth> ~ ␣ ~ .<new-module>;
             put ('https://modules.raku.org/search/?q=' ~ .<name>).indent(4);
             put (.<source-url> // .<support><source>).indent(4);
             put (.<authors> // .<author> // .<auth>)».?indent(4).join(';');
