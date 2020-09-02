@@ -1,11 +1,10 @@
 #! /usr/bin/env raku
 
 use v6.d;
-# use META6::bin :HELPER;
-use Proc::Async::Timeout;
+
 use JSON::Fast;
 use Data::Dump::Tree;
-
+use Shell::Piping;
 
 constant term:<␣> = ' ';
 constant term:<¶> = $?NL;
@@ -95,11 +94,37 @@ our $new-versions-last-week is export = @nameversions-young ∖ @nameversions-ol
 sub MAIN(:v(:$verbose)) {
     my $*verbose = $verbose;
     for %distros{$new-versions-last-week.keys}.sort({.<authors> // .<author> // .<auth>}) {
-        put .<name> ~ ␣ ~ .<version>;
+        warn ‚WARN: no auth field in META6.json.‘ unless .<auth>;
+        $_ = fetch-cpan-meta6(.<source-url>, .<auth>) if .<auth>.starts-with('cpan:'); 
+
+        if .<auth>.starts-with('github:') && !.<author> && !.<authors> {
+            .<author> = github-realname(.<auth>.split(':')[1]);
+        }
+
+        put .<name> ~ ␣ ~ .<version> ~ ␣ ~ .<auth>;
             put ('https://modules.raku.org/search/?q=' ~ .<name>).indent(4);
             put (.<source-url> // .<support><source>).indent(4);
             put (.<authors> // .<author> // .<auth>)».?indent(4).join(';');
     }
+}
+
+sub fetch-cpan-meta6($source-url, $auth) {
+    my @meta6;
+    px«curl -s $source-url» |» px<tar -xz -O --no-wildcards-match-slash --wildcards */META6.json> |» @meta6;
+
+    my $meta6 = @meta6.join.chomp.&from-json;
+    $meta6.<auth> = $auth unless $meta6.<auth>;
+
+    $meta6;
+}
+
+sub github-realname(Str:D $handle) {
+    my @github-response;
+
+    my $url = 'https://api.github.com/users:' ~ $handle;
+    px«curl -s -X GET $url» |» @github-response;
+
+    @github-response.join.&from-json.<name>
 }
 
 sub normalize-meta6($_ is raw) is rw {
