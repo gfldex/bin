@@ -59,6 +59,11 @@ sub github-get-remote-commits($owner, $repo, :$since, :$until) is export(:GIT) {
         last unless from-json($github-response)[0].<commit>;
         $page++;
     }
+    
+    if any @response.flat.hash.<message>.?starts-with('API rate limit exceeded') {
+        die „github hourly rate limit hit.“;
+    }
+
     @response.flat
 }
 
@@ -91,8 +96,6 @@ sub fetch-distros(DateTime:D $old, DateTime:D $young) {
     my $new-versions = @nameversions-young ∖ @nameversions-old;
 
     for %distros{$new-versions.keys} <-> $_ {
-        
-        warn ‚WARN: no auth field in META6.json.‘ unless .<auth>;
         $_ = fetch-cpan-meta6(.<source-url>, .<auth>) if .<auth>.starts-with('cpan:'); 
 
         if .<auth>.starts-with('github:') && !.<author> && !.<authors> {
@@ -105,7 +108,7 @@ sub fetch-distros(DateTime:D $old, DateTime:D $young) {
     %distros, $new-versions.keys
 }
 
-multi sub MAIN(Bool :v(:$verbose) = True, Bool :m(:$monthly) = False, Bool :w(:$weekly) = True, Bool :$last7days, Bool :$last30days) {
+multi sub MAIN(Bool :v(:$verbose), Bool :m(:$monthly) = False, Bool :w(:$weekly), Bool :$last7days, Bool :$last30days = True) {
     my $*verbose = $verbose;
 
     my ($old, $young);
@@ -114,6 +117,11 @@ multi sub MAIN(Bool :v(:$verbose) = True, Bool :m(:$monthly) = False, Bool :w(:$
         my $zero-hour = now.DateTime.truncated-to('day');
         $young = $zero-hour.earlier(:days($zero-hour.day-of-week - 1));
         $old = $young.earlier(:7days);
+    }
+
+    if $last30days {
+        $young = now.DateTime;
+        $old = $young.earlier(:30days);
     }
 
     my (%distros, @new-versions) := fetch-distros($old, $young);
@@ -126,7 +134,7 @@ multi sub MAIN(Bool :v(:$verbose) = True, Bool :m(:$monthly) = False, Bool :w(:$
             put (.<source-url> // .<support><source>).indent(4);
             put (.<authors> // .<author> // .<auth>)».?indent(4).join(';');
     }
-    
+
     for %distros{@new-versions}.grep(!*.<new-module>).sort({.<authors> // .<author> // .<auth>}) {
         once put BOLD ‚updated modules:‘;
 
