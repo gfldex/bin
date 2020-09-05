@@ -9,6 +9,8 @@ use Shell::Piping;
 constant term:<␣> = ' ';
 constant term:<¶> = $?NL;
 
+constant CPU-CORES = $*KERNEL.cpu-cores;
+
 my &RED = { "\e[31m$_\e[0m" };
 my &BOLD = { "\e[1m$_\e[0m" };
 
@@ -49,7 +51,7 @@ sub github-get-remote-commits($owner, $repo, :$since, :$until) is export(:GIT) {
     if $*cached && $cache-file.f {
         if now - $cache-file.modified < 30 * 60 {
             warn ‚reading cache‘;
-            return $cache-file.slurl.&from-json;
+            return $cache-file.slurp.&from-json;
         }
     }
     my $page = 1;
@@ -68,11 +70,12 @@ sub github-get-remote-commits($owner, $repo, :$since, :$until) is export(:GIT) {
     }
     
     if @response.flat.grep(*.<message>) && @response.flat.hash.<message>.starts-with('API rate limit exceeded') {
+        dd @response.flat;
         die „github hourly rate limit hit.“;
     }
 
     if $*cached {
-        @response.flat.&to-json.spurt($cache-file);
+        $cache-file.spurt(@response.flat.&to-json);
     }
 
     @response.flat
@@ -84,7 +87,7 @@ sub fetch-distros(DateTime:D $old, DateTime:D $young) {
 
     my ($youngest-commit, $oldest-commit) = @ecosystems-commits[0,*-1]».<sha>;
 
-    my @ecosystems-old = fetch-ecosystem(:commit($oldest-commit));
+    my @ecosystems-old = fetch-ecosystem(:commit($oldest-commit)).grep(*.<perl>.?starts-with('6'));
     .&normalize-meta6 for @ecosystems-old;
     my @nameversions-old = @ecosystems-old.sort(*.<name>).map: { 
         my $key = .<name> ~ ' ' ~ .<version>;
@@ -94,7 +97,7 @@ sub fetch-distros(DateTime:D $old, DateTime:D $young) {
 
 # spurt("%*ENV<HOME>/tmp/ecosystem-{$monday-old.yyyy-mm-dd}.txt", @nameversions-old.join(¶));
 
-    my @ecosystems-young = fetch-ecosystem(:commit($youngest-commit));
+    my @ecosystems-young = fetch-ecosystem(:commit($youngest-commit)).grep(*.<perl>.?starts-with('6'));
     .&normalize-meta6 for @ecosystems-young;
     my @nameversions-young = @ecosystems-young.sort(*.<name>).map: { 
         my $key = .<name> ~ ' ' ~ .<version>;
@@ -106,7 +109,10 @@ sub fetch-distros(DateTime:D $old, DateTime:D $young) {
 
     my $new-versions = @nameversions-young ∖ @nameversions-old;
 
-    for %distros{$new-versions.keys} <-> $_ {
+    %distros{$new-versions.keys}.race(:batch(4), :degree(CPU-CORES)).map( <-> $_ {
+        dd .<perl>;
+        next unless .<perl>.?starts-with('6');
+
         $_ = fetch-cpan-meta6(.<source-url>, .<auth>) if .<auth>.starts-with('cpan:'); 
 
         if .<auth>.starts-with('github:') && !.<author> && !.<authors> {
@@ -114,13 +120,15 @@ sub fetch-distros(DateTime:D $old, DateTime:D $young) {
         }
         
         .<new-module> = @ecosystems-old.grep(*.<name> eq .<name>).head.<version> ?? False !! True;
-    }
+    });
 
     %distros, $new-versions.keys
 }
 
-multi sub MAIN(Bool :v(:$verbose), Bool :m(:$monthly) = False, Bool :w(:$weekly), Bool :$last7days, Bool :$last30days = True) {
+multi sub MAIN(Bool :v(:$verbose), Bool :m(:$monthly) = False, Bool :w(:$weekly), Bool :$last7days = True, Bool :$last30days) {
     my $*verbose = $verbose;
+
+    my $*cached = True;
 
     my ($old, $young);
     if $weekly {
@@ -143,7 +151,7 @@ multi sub MAIN(Bool :v(:$verbose), Bool :m(:$monthly) = False, Bool :w(:$weekly)
         put .<name> ~ ␣ ~ .<version> ~ ␣ ~ .<auth>;
             put ('https://modules.raku.org/search/?q=' ~ .<name>).indent(4);
             put (.<source-url> // .<support><source>).indent(4);
-            put (.<authors> // .<author> // .<auth>)».?indent(4).join(';');
+            put (.<authors> // .<author> // .<auth>).join('; ').indent(4);
     }
 
     for %distros{@new-versions}.grep(!*.<new-module>).sort({.<authors> // .<author> // .<auth>}) {
@@ -152,7 +160,7 @@ multi sub MAIN(Bool :v(:$verbose), Bool :m(:$monthly) = False, Bool :w(:$weekly)
         put .<name> ~ ␣ ~ .<version> ~ ␣ ~ .<auth>;
             put ('https://modules.raku.org/search/?q=' ~ .<name>).indent(4);
             put (.<source-url> // .<support><source>).indent(4);
-            put (.<authors> // .<author> // .<auth>)».?indent(4).join(';');
+            put (.<authors> // .<author> // .<auth>).join('; ').indent(4);
     }
 }
 
