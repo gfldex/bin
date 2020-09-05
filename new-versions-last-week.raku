@@ -125,7 +125,7 @@ sub fetch-distros(DateTime:D $old, DateTime:D $young) {
     %distros, $new-versions.keys
 }
 
-multi sub MAIN(Bool :v(:$verbose), :$html = 'wordpress', Bool :w(:$weekly) = True, Bool :$last7days, Bool :$last30days) {
+multi sub MAIN(Bool :v(:$verbose), Str :$html, Bool :w(:$weekly) = True, Bool :$last7days, Bool :$last30days) {
     my $*verbose = $verbose;
 
     my $*cached = True;
@@ -150,24 +150,48 @@ multi sub MAIN(Bool :v(:$verbose), :$html = 'wordpress', Bool :w(:$weekly) = Tru
 
     my (%distros, @new-versions) := fetch-distros($old, $young);
 
-    for %distros{@new-versions}.grep(*.<new-module>).sort({.<authors> // .<author> // .<auth>}) {
-        once put BOLD ‚new modules:‘;
+    if $html ~~ 'wordpress' {
+        put BOLD ‚new modules:‘;
+        for %distros{@new-versions}.grep(*.<new-module>).sort({.<authors> // .<author> // .<auth>}) {
+            FIRST put '<ul>';
 
-        put .<name> ~ ␣ ~ .<version> ~ ␣ ~ .<auth>;
-            # put ('https://modules.raku.org/search/?q=' ~ .<name>).indent(4);
-            put ('https://modules.raku.org/dist/' ~ .<name>).indent(4);
-            put (.<source-url> // .<support><source>).indent(4);
-            put (.<authors> // .<author> // .<auth>).join('; ').indent(4);
-    }
+            put '<li>';
+            put '<a href="' ~ 'https://modules.raku.org/dist/' ~ .<name> ~ '">' ~ .<name> ~ '</a> by <em>' 
+                ~ (.<authors> // .<author> // .<auth>).join('; ') ~ '</em>.';
+            put '</li>';
 
-    for %distros{@new-versions}.grep(!*.<new-module>).sort({.<authors> // .<author> // .<auth>}) {
-        once put BOLD ‚updated modules:‘;
+            LAST put '</ul>';
+        }
+    
+        put BOLD ‚updated modules:‘;
+        for %distros{@new-versions}.grep(!*.<new-module>).sort({.<authors> // .<author> // .<auth>}) {
+            FIRST put '<ul>';
 
-        put .<name> ~ ␣ ~ .<version> ~ ␣ ~ .<auth>;
-            # put ('https://modules.raku.org/search/?q=' ~ .<name>).indent(4);
-            put ('https://modules.raku.org/dist/' ~ .<name>).indent(4);
-            put (.<source-url> // .<support><source>).indent(4);
-            put (.<authors> // .<author> // .<auth>).join('; ').indent(4);
+            put '<li>';
+            put '<a href="' ~ 'https://modules.raku.org/dist/' ~ .<name> ~ '">' ~ .<name> ~ '</a> by <em>' 
+                ~ (.<authors> // .<author> // .<auth>).join('; ') ~ '</em>.';
+            put '</li>';
+
+            LAST put '</ul>';
+        }
+    } else {
+        for %distros{@new-versions}.grep(*.<new-module>).sort({.<authors> // .<author> // .<auth>}) {
+            once put BOLD ‚new modules:‘;
+
+            put .<name> ~ ␣ ~ .<version> ~ ␣ ~ .<auth>;
+                put ('https://modules.raku.org/dist/' ~ .<name>).indent(4);
+                put (.<source-url> // .<support><source>).indent(4);
+                put (.<authors> // .<author> // .<auth>).join('; ').indent(4);
+        }
+
+        for %distros{@new-versions}.grep(!*.<new-module>).sort({.<authors> // .<author> // .<auth>}) {
+            once put BOLD ‚updated modules:‘;
+
+            put .<name> ~ ␣ ~ .<version> ~ ␣ ~ .<auth>;
+                put ('https://modules.raku.org/dist/' ~ .<name>).indent(4);
+                put (.<source-url> // .<support><source>).indent(4);
+                put (.<authors> // .<author> // .<auth>).join('; ').indent(4);
+        }
     }
 }
 
