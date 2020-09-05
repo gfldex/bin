@@ -14,6 +14,11 @@ constant CPU-CORES = $*KERNEL.cpu-cores;
 my &RED = { "\e[31m$_\e[0m" };
 my &BOLD = { "\e[1m$_\e[0m" };
 
+sub qh($s) {
+    $s.trans([ '<'   , '>'   , '&' ] =>
+             [ '&lt;', '&gt;', '&amp;' ])
+}
+
 my $timeout = 60;
 
 sub fetch-ecosystem(:$verbose, :$cached, :$commit) {
@@ -133,6 +138,7 @@ multi sub MAIN(Bool :v(:$verbose), Str :$html, Bool :w(:$weekly) = True, Bool :$
         # monday 00:00 this week until monday 00:00 last week
         my $zero-hour = now.DateTime.truncated-to('day');
         $young = $zero-hour.earlier(:days($zero-hour.day-of-week - 1));
+        # $young = DateTime.new(2020, 9, 7, 0, 0, 0);
         $old = $young.earlier(:7days);
     }
 
@@ -155,7 +161,7 @@ multi sub MAIN(Bool :v(:$verbose), Str :$html, Bool :w(:$weekly) = True, Bool :$
 
             put '<li>';
             put '<a href="' ~ 'https://modules.raku.org/dist/' ~ .<name> ~ '">' ~ .<name> ~ '</a> by <em>' 
-                ~ (.<authors> // .<author> // .<auth>).join('; ') ~ '</em>.';
+                ~ (.<authors> // .<author> // .<auth>).join('; ').&qh ~ '</em>.';
             put '</li>';
 
             LAST put '</ul>';
@@ -167,7 +173,7 @@ multi sub MAIN(Bool :v(:$verbose), Str :$html, Bool :w(:$weekly) = True, Bool :$
 
             put '<li>';
             put '<a href="' ~ 'https://modules.raku.org/dist/' ~ .<name> ~ '">' ~ .<name> ~ '</a> by <em>' 
-                ~ (.<authors> // .<author> // .<auth>).join('; ') ~ '</em>.';
+                ~ (.<authors> // .<author> // .<auth>).join('; ').&qh ~ '</em>.';
             put '</li>';
 
             LAST put '</ul>';
