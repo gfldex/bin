@@ -125,7 +125,7 @@ sub fetch-distros(DateTime:D $old, DateTime:D $young) {
     %distros, $new-versions.keys
 }
 
-multi sub MAIN(Bool :v(:$verbose), Bool :m(:$monthly) = False, Bool :w(:$weekly), Bool :$last7days = True, Bool :$last30days) {
+multi sub MAIN(Bool :v(:$verbose), :$html = 'wordpress', Bool :w(:$weekly) = True, Bool :$last7days, Bool :$last30days) {
     my $*verbose = $verbose;
 
     my $*cached = True;
@@ -136,6 +136,11 @@ multi sub MAIN(Bool :v(:$verbose), Bool :m(:$monthly) = False, Bool :w(:$weekly)
         my $zero-hour = now.DateTime.truncated-to('day');
         $young = $zero-hour.earlier(:days($zero-hour.day-of-week - 1));
         $old = $young.earlier(:7days);
+    }
+
+    if $last7days {
+        $young = now.DateTime;
+        $old = $young.earlier(:30days);
     }
 
     if $last30days {
@@ -149,7 +154,8 @@ multi sub MAIN(Bool :v(:$verbose), Bool :m(:$monthly) = False, Bool :w(:$weekly)
         once put BOLD ‚new modules:‘;
 
         put .<name> ~ ␣ ~ .<version> ~ ␣ ~ .<auth>;
-            put ('https://modules.raku.org/search/?q=' ~ .<name>).indent(4);
+            # put ('https://modules.raku.org/search/?q=' ~ .<name>).indent(4);
+            put ('https://modules.raku.org/dist/' ~ .<name>).indent(4);
             put (.<source-url> // .<support><source>).indent(4);
             put (.<authors> // .<author> // .<auth>).join('; ').indent(4);
     }
@@ -158,7 +164,8 @@ multi sub MAIN(Bool :v(:$verbose), Bool :m(:$monthly) = False, Bool :w(:$weekly)
         once put BOLD ‚updated modules:‘;
 
         put .<name> ~ ␣ ~ .<version> ~ ␣ ~ .<auth>;
-            put ('https://modules.raku.org/search/?q=' ~ .<name>).indent(4);
+            # put ('https://modules.raku.org/search/?q=' ~ .<name>).indent(4);
+            put ('https://modules.raku.org/dist/' ~ .<name>).indent(4);
             put (.<source-url> // .<support><source>).indent(4);
             put (.<authors> // .<author> // .<auth>).join('; ').indent(4);
     }
