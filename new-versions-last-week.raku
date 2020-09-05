@@ -3,7 +3,6 @@
 use v6.d;
 
 use JSON::Fast;
-use Data::Dump::Tree;
 use Shell::Piping;
 
 constant term:<␣> = ' ';
@@ -201,8 +200,13 @@ multi sub MAIN(Bool :v(:$verbose), Str :$html, Bool :w(:$weekly) = True, Bool :$
 
 sub fetch-cpan-meta6($source-url, $auth) {
     note „fetching cpan distro $source-url“ if $*verbose;
+
+    my @files;
+    px«curl -s $source-url» |» px<tar --list -z> |» @files;
+    my $meta6-path = @files».split('/').grep({ .[1] ~~ 'META6.json'}).head.join('/');
+
     my @meta6;
-    px«curl -s $source-url» |» px<tar -xz -O --no-wildcards-match-slash --wildcards */META6.json> |» @meta6;
+    px«curl -s $source-url» |» px«tar -xz -O $meta6-path» |» @meta6;
 
     my $meta6 = @meta6.join.chomp.&from-json;
     $meta6.<auth> = $auth unless $meta6.<auth>;
