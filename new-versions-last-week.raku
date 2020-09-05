@@ -138,7 +138,7 @@ multi sub MAIN(Bool :v(:$verbose), Str :$html, Bool :w(:$weekly) = True, Bool :$
 
     if $last7days {
         $young = now.DateTime;
-        $old = $young.earlier(:30days);
+        $old = $young.earlier(:7days);
     }
 
     if $last30days {
