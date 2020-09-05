@@ -9,6 +9,9 @@ use Shell::Piping;
 constant term:<␣> = ' ';
 constant term:<¶> = $?NL;
 
+my &RED = { "\e[31m$_\e[0m" };
+my &BOLD = { "\e[1m$_\e[0m" };
+
 my $timeout = 60;
 
 sub fetch-ecosystem(:$verbose, :$cached, :$commit) {
@@ -59,52 +62,75 @@ sub github-get-remote-commits($owner, $repo, :$since, :$until) is export(:GIT) {
     @response.flat
 }
 
-my %distros;
+sub fetch-distros(DateTime:D $old, DateTime:D $young) {
+    my %distros;
+    my @ecosystems-commits = github-get-remote-commits(‚ugexe‘, ‚Perl6-ecosystems‘, :since($old), :until($young));
 
-my $zero-hour = now.DateTime.truncated-to('day');
-my $monday-young = $zero-hour.earlier(:days($zero-hour.day-of-week - 1));
-my $monday-old = $monday-young.earlier(:7days);
+    my ($youngest-commit, $oldest-commit) = @ecosystems-commits[0,*-1]».<sha>;
 
-my @ecosystems-commits = github-get-remote-commits(‚ugexe‘, ‚Perl6-ecosystems‘, :since($monday-old), :until($monday-young));
-
-my ($youngest-commit, $oldest-commit) = @ecosystems-commits[0,*-1]».<sha>;
-
-my @ecosystems-old = fetch-ecosystem(:commit($oldest-commit));
-.&normalize-meta6 for @ecosystems-old;
-my @nameversions-old = @ecosystems-old.sort(*.<name>).map: { 
-    my $key = .<name> ~ ' ' ~ .<version>;
-    %distros{$key} = $_;
-    $key
-};
+    my @ecosystems-old = fetch-ecosystem(:commit($oldest-commit));
+    .&normalize-meta6 for @ecosystems-old;
+    my @nameversions-old = @ecosystems-old.sort(*.<name>).map: { 
+        my $key = .<name> ~ ' ' ~ .<version>;
+        %distros{$key} = $_;
+        $key
+    };
 
 # spurt("%*ENV<HOME>/tmp/ecosystem-{$monday-old.yyyy-mm-dd}.txt", @nameversions-old.join(¶));
 
-my @ecosystems-young = fetch-ecosystem(:commit($youngest-commit));
-.&normalize-meta6 for @ecosystems-young;
-my @nameversions-young = @ecosystems-young.sort(*.<name>).map: { 
-    my $key = .<name> ~ ' ' ~ .<version>;
-    %distros{$key} = $_;
-    $key
-};
+    my @ecosystems-young = fetch-ecosystem(:commit($youngest-commit));
+    .&normalize-meta6 for @ecosystems-young;
+    my @nameversions-young = @ecosystems-young.sort(*.<name>).map: { 
+        my $key = .<name> ~ ' ' ~ .<version>;
+        %distros{$key} = $_;
+        $key
+    };
 
 # spurt("%*ENV<HOME>/tmp/ecosystem-{$monday-young.yyyy-mm-dd}.txt", @nameversions-young.join(¶));
 
-our $new-versions-last-week is export = @nameversions-young ∖ @nameversions-old;
+    my $new-versions = @nameversions-young ∖ @nameversions-old;
 
-sub MAIN(:v(:$verbose)) {
-    my $*verbose = $verbose;
-
-    for %distros{$new-versions-last-week.keys}.sort({.<authors> // .<author> // .<auth>}) {
+    for %distros{$new-versions.keys} <-> $_ {
+        
         warn ‚WARN: no auth field in META6.json.‘ unless .<auth>;
         $_ = fetch-cpan-meta6(.<source-url>, .<auth>) if .<auth>.starts-with('cpan:'); 
 
         if .<auth>.starts-with('github:') && !.<author> && !.<authors> {
             .<author> = github-realname(.<auth>.split(':')[1]);
         }
+        
+        .<new-module> = @ecosystems-old.grep(*.<name> eq .<name>).head.<version> ?? False !! True;
+    }
 
-        .<new-module> = @ecosystems-old.grep(*.<name> eq .<name>).head.<version> ?? '' !! 'NEW MODULE';
+    %distros, $new-versions.keys
+}
 
-        put .<name> ~ ␣ ~ .<version> ~ ␣ ~ .<auth> ~ ␣ ~ .<new-module>;
+multi sub MAIN(Bool :v(:$verbose) = True, Bool :m(:$monthly) = False, Bool :w(:$weekly) = True, Bool :$last7days, Bool :$last30days) {
+    my $*verbose = $verbose;
+
+    my ($old, $young);
+    if $weekly {
+        # monday 00:00 this week until monday 00:00 last week
+        my $zero-hour = now.DateTime.truncated-to('day');
+        $young = $zero-hour.earlier(:days($zero-hour.day-of-week - 1));
+        $old = $young.earlier(:7days);
+    }
+
+    my (%distros, @new-versions) := fetch-distros($old, $young);
+
+    for %distros{@new-versions}.grep(*.<new-module>).sort({.<authors> // .<author> // .<auth>}) {
+        once put BOLD ‚new modules:‘;
+
+        put .<name> ~ ␣ ~ .<version> ~ ␣ ~ .<auth>;
+            put ('https://modules.raku.org/search/?q=' ~ .<name>).indent(4);
+            put (.<source-url> // .<support><source>).indent(4);
+            put (.<authors> // .<author> // .<auth>)».?indent(4).join(';');
+    }
+    
+    for %distros{@new-versions}.grep(!*.<new-module>).sort({.<authors> // .<author> // .<auth>}) {
+        once put BOLD ‚updated modules:‘;
+
+        put .<name> ~ ␣ ~ .<version> ~ ␣ ~ .<auth>;
             put ('https://modules.raku.org/search/?q=' ~ .<name>).indent(4);
             put (.<source-url> // .<support><source>).indent(4);
             put (.<authors> // .<author> // .<auth>)».?indent(4).join(';');
@@ -112,6 +138,7 @@ sub MAIN(:v(:$verbose)) {
 }
 
 sub fetch-cpan-meta6($source-url, $auth) {
+    note „fetching cpan distro $source-url“ if $*verbose;
     my @meta6;
     px«curl -s $source-url» |» px<tar -xz -O --no-wildcards-match-slash --wildcards */META6.json> |» @meta6;
 
@@ -147,7 +174,7 @@ sub normalize-meta6($_ is raw) is rw {
     }
 
     if $*verbose && ! all(.<name>, .<auth>, .<version>) {
-        say 'bailing on';
-        .&ddt;
+        note 'bailing on';
+        note .&to-json;
     }
 }
