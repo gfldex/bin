@@ -45,6 +45,13 @@ sub fetch-ecosystem(:$verbose, :$cached, :$commit) {
 }
 
 sub github-get-remote-commits($owner, $repo, :$since, :$until) is export(:GIT) {
+    my $cache-file = $*TMPDIR.add('thatwasthemodulethatwas-remote-commits.cache');
+    if $*cached && $cache-file.f {
+        if now - $cache-file.modified < 30 * 60 {
+            warn ‚reading cache‘;
+            return $cache-file.slurl.&from-json;
+        }
+    }
     my $page = 1;
     my @response;
     loop {
@@ -60,8 +67,12 @@ sub github-get-remote-commits($owner, $repo, :$since, :$until) is export(:GIT) {
         $page++;
     }
     
-    if any @response.flat.hash.<message>.?starts-with('API rate limit exceeded') {
+    if @response.flat.grep(*.<message>) && @response.flat.hash.<message>.starts-with('API rate limit exceeded') {
         die „github hourly rate limit hit.“;
+    }
+
+    if $*cached {
+        @response.flat.&to-json.spurt($cache-file);
     }
 
     @response.flat
