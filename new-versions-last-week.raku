@@ -70,7 +70,6 @@ sub github-get-remote-commits($owner, $repo, :$since, :$until) is export(:GIT) {
     }
     
     if @response.flat.grep(*.<message>) && @response.flat.hash.<message>.starts-with('API rate limit exceeded') {
-        dd @response.flat;
         die „github hourly rate limit hit.“;
     }
 
@@ -110,7 +109,6 @@ sub fetch-distros(DateTime:D $old, DateTime:D $young) {
     my $new-versions = @nameversions-young ∖ @nameversions-old;
 
     %distros{$new-versions.keys}.race(:batch(4), :degree(CPU-CORES)).map( <-> $_ {
-        dd .<perl>;
         next unless .<perl>.?starts-with('6');
 
         $_ = fetch-cpan-meta6(.<source-url>, .<auth>) if .<auth>.starts-with('cpan:'); 
@@ -128,7 +126,7 @@ sub fetch-distros(DateTime:D $old, DateTime:D $young) {
 multi sub MAIN(Bool :v(:$verbose), Str :$html, Bool :w(:$weekly) = True, Bool :$last7days, Bool :$last30days) {
     my $*verbose = $verbose;
 
-    my $*cached = True;
+    my $*cached = False;
 
     my ($old, $young);
     if $weekly {
