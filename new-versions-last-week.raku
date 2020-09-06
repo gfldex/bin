@@ -200,13 +200,24 @@ multi sub MAIN(Bool :v(:$verbose), Str :$html, Bool :w(:$weekly) = True, Bool :$
 
 sub fetch-cpan-meta6($source-url, $auth) {
     note „fetching cpan distro $source-url“ if $*verbose;
+    state $TAR-IS-GNU;
 
-    my @files;
-    px«curl -s $source-url» |» px<tar --list -z> |» @files;
-    my $meta6-path = @files».split('/').grep({ .[1] ~~ 'META6.json'}).head.join('/');
+    without $TAR-IS-GNU {
+        my @tar;
+        px<tar --version> |» @tar;
+        $TAR-IS-GNU = @tar».contains('(GNU tar)').any.so;
+    }
 
     my @meta6;
-    px«curl -s $source-url» |» px«tar -xz -O $meta6-path» |» @meta6;
+    if $TAR-IS-GNU {
+        px«curl -s $source-url» |» px<tar -xz -O --no-wildcards-match-slash --wildcards */META6.json> |» @meta6;
+    } else {
+        my @files;
+        px«curl -s $source-url» |» px<tar --list -z> |» @files;
+        my $meta6-path = @files».split('/').grep({ .[1] ~~ 'META6.json'}).head.join('/');
+
+        px«curl -s $source-url» |» px«tar -xz -O $meta6-path» |» @meta6;
+    }
 
     my $meta6 = @meta6.join.chomp.&from-json;
     $meta6.<auth> = $auth unless $meta6.<auth>;
