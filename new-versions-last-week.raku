@@ -7,6 +7,7 @@ use Shell::Piping;
 
 constant term:<␣> = ' ';
 constant term:<¶> = $?NL;
+constant CorruptMetadata = class CorruptMetadata {}.new;
 
 constant CPU-CORES = $*KERNEL.cpu-cores;
 
@@ -115,7 +116,8 @@ sub fetch-distros(DateTime:D $old, DateTime:D $young) {
     %distros{$new-versions.keys}.race(:batch(4), :degree(CPU-CORES)).map( <-> $_ {
         next unless .<perl>.?starts-with('6');
 
-        $_ = fetch-cpan-meta6(.<source-url>, .<auth>) if .<auth>.starts-with('cpan:'); 
+        # $_ = fetch-cpan-meta6(.<source-url>, .<auth>) if .<auth>.starts-with('cpan:'); 
+        $_ = fetch-cpan-meta6(.<source-url>, .<auth>) if (.<source-url> // <support><source>).contains('www.cpan.org'); 
 
         if .<auth>.starts-with('github:') && !.<author> && !.<authors> {
             .<author> = github-realname(.<auth>.split(':')[1]);
@@ -129,6 +131,7 @@ sub fetch-distros(DateTime:D $old, DateTime:D $young) {
 
 multi sub MAIN(Bool :v(:$verbose), Str :$html, Bool :w(:$weekly) = True, Bool :$last7days, Bool :$last30days) {
     my $*verbose = $verbose;
+    my $*verbose = True;
 
     my $*cached = False;
 
@@ -199,6 +202,13 @@ multi sub MAIN(Bool :v(:$verbose), Str :$html, Bool :w(:$weekly) = True, Bool :$
 }
 
 sub fetch-cpan-meta6($source-url, $auth) {
+    CATCH {
+        when X::Shell::NonZeroExitcode {
+            put RED „Fetching META6.json for $source-url failed“;
+            return CorruptMetadata;
+        }
+        default { say .^name, ': ', .message }
+    }
     note „fetching cpan distro $source-url“ if $*verbose;
     state $TAR-IS-GNU;
 
@@ -222,7 +232,7 @@ sub fetch-cpan-meta6($source-url, $auth) {
     my $meta6 = @meta6.join.chomp.&from-json;
     $meta6.<auth> = $auth unless $meta6.<auth>;
 
-    $meta6;
+    $meta6
 }
 
 sub github-realname(Str:D $handle) {
