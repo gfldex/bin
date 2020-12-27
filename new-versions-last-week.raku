@@ -117,8 +117,9 @@ sub fetch-distros(DateTime:D $old, DateTime:D $young) {
         next unless .<perl>.?starts-with('6');
 
         # $_ = fetch-cpan-meta6(.<source-url>, .<auth>) if .<auth>.starts-with('cpan:'); 
-        $_ = fetch-cpan-meta6(.<source-url>, .<auth>) if (.<source-url> // <support><source>).contains('www.cpan.org'); 
-
+        # try { $_ = fetch-cpan-meta6(.<source-url>, .<auth>) if (.<source-url> // .<support><source>).contains('www.cpan.org'); } or die $_;
+        $_ = fetch-cpan-meta6(.<source-url>, .<auth>) if (.<source-url> // .<support><source>).?contains('www.cpan.org');
+        
         if .<auth>.starts-with('github:') && !.<author> && !.<authors> {
             .<author> = github-realname(.<auth>.split(':')[1]);
         }
@@ -131,7 +132,6 @@ sub fetch-distros(DateTime:D $old, DateTime:D $young) {
 
 multi sub MAIN(Bool :v(:$verbose), Str :$html, Bool :w(:$weekly) = True, Bool :$last7days, Bool :$last30days) {
     my $*verbose = $verbose;
-    my $*verbose = True;
 
     my $*cached = False;
 
@@ -186,7 +186,7 @@ multi sub MAIN(Bool :v(:$verbose), Str :$html, Bool :w(:$weekly) = True, Bool :$
 
             put .<name> ~ ␣ ~ .<version> ~ ␣ ~ .<auth>;
                 put ('https://modules.raku.org/dist/' ~ .<name>).indent(4);
-                put (.<source-url> // .<support><source>).indent(4);
+                put (.<source-url> // .<support><source>).?indent(4) // "<no-source-url-provided>";
                 put (.<authors> // .<author> // .<auth>).join('; ').indent(4);
         }
 
@@ -195,7 +195,7 @@ multi sub MAIN(Bool :v(:$verbose), Str :$html, Bool :w(:$weekly) = True, Bool :$
 
             put .<name> ~ ␣ ~ .<version> ~ ␣ ~ .<auth>;
                 put ('https://modules.raku.org/dist/' ~ .<name>).indent(4);
-                put (.<source-url> // .<support><source>).indent(4);
+                put (.<source-url> // .<support><source>).?indent(4) // "<no-source-url-provided>";
                 put (.<authors> // .<author> // .<auth>).join('; ').indent(4);
         }
     }
