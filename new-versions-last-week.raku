@@ -130,7 +130,7 @@ sub fetch-distros(DateTime:D $old, DateTime:D $young) {
     %distros, $new-versions.keys
 }
 
-multi sub MAIN(Bool :v(:$verbose), Str :$html, Bool :w(:$weekly) = True, Bool :$last7days, Bool :$last30days) {
+multi sub MAIN(Bool :v(:$verbose), Str :$html, Bool :w(:$weekly) = True, Bool :$last7days, Bool :$last30days, Int :$year) {
     my $*verbose = $verbose;
 
     my $*cached = False;
@@ -152,6 +152,11 @@ multi sub MAIN(Bool :v(:$verbose), Str :$html, Bool :w(:$weekly) = True, Bool :$
     if $last30days {
         $young = now.DateTime;
         $old = $young.earlier(:30days);
+    }
+
+    if $year {
+        $old = DateTime.new($year, 1, 1, 0, 0, 0);
+        $young = DateTime.new($year, 12, 31, 23, 59, 59);
     }
 
     my (%distros, @new-versions) := fetch-distros($old, $young);
