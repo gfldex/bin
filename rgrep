@@ -1,0 +1,7 @@
+#! /usr/bin/env raku
+
+sub MAIN(Str $pattern, IO(Str) $path?, Bool :$v) {
+    .put for ($path.?lines // lines).hyper.grep: {
+        $v ^^ m/ <$pattern> /
+    }
+}
