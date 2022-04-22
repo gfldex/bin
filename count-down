@@ -36,11 +36,22 @@ multi sub MAIN(Seconds $to-wait) {
     MAIN($to-wait ~ 's');
 }
 
+multi sub MAIN() {
+    note 'Missing operand. Please provide a time or duration of the form HH:MM or 11h 22m 33s.';
+    exit 1
+}
+
 multi sub MAIN(*@timicles where .all ~~ /<number> <suffix>/) {
-    my Seconds $to-wait = @timicles»\
-        .match(/<number> <suffix>+/)».hash\ # the +-quantifier is a workaround
-        .map(-> % ( Rat(Any) :$number, Str(Any) :$suffix ) { %unit-multipliers{$suffix} * $number })\
-        .sum;
+    # my Seconds $to-wait = @timicles»\
+    #     .match(/<number> <suffix>+/)».hash\ # the +-quantifier is a workaround
+    #     .map(-> % ( Rat(Any) :$number, Str(Any) :$suffix ) { %unit-multipliers{$suffix} * $number })\
+    #     .sum;
+
+    my Seconds $to-wait = (@timicles
+        ==> map(* ~~ /<number> <suffix>+/) # the +-quantifier is a workaround
+        ==> map(*.hash)
+        ==> map(-> % ( Rat(Any) :$number, Str(Any) :$suffix ) { %unit-multipliers{$suffix} * $number })
+        ==> sum);
 
     react {
         whenever Promise.in($to-wait) {
@@ -57,6 +68,7 @@ multi sub MAIN(*@timicles where .all ~~ /<number> <suffix>/) {
         }
     }
 }
+
 
 sub USAGE {
 print Q:c:to/EOH/;

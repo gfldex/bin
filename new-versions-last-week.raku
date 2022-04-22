@@ -116,6 +116,8 @@ sub fetch-distros(DateTime:D $old, DateTime:D $young) {
     %distros{$new-versions.keys}.race(:batch(4), :degree(CPU-CORES)).map( <-> $_ {
         next unless .<perl>.?starts-with('6');
 
+        $*ERR.print('.') if $*verbose;
+
         # $_ = fetch-cpan-meta6(.<source-url>, .<auth>) if .<auth>.starts-with('cpan:'); 
         # try { $_ = fetch-cpan-meta6(.<source-url>, .<auth>) if (.<source-url> // .<support><source>).contains('www.cpan.org'); } or die $_;
         $_ = fetch-cpan-meta6(.<source-url>, .<auth>) if (.<source-url> // .<support><source>).?contains('www.cpan.org');

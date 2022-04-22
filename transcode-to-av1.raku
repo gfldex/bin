@@ -20,12 +20,14 @@ use Shell::Piping;
 # # rm $TMPDIR/*
 # # rmdir $TMPDIR
 
-multi sub MAIN(*@input, Bool :$verbose) {
+enum VideoType <movie screencast>;
+
+multi sub MAIN(*@input, VideoType :t(:$videotype) = movie, Bool :$verbose) {
     exit 0 unless @input;
 
     my $input = @input.join(' ');
     my $output = $input.IO.extension('av1.mkv');
-    say $input, ' => ', $output.basename;
+    # say $input, ' => ', $output.basename;
 
     my $ffmpeg-out = Channel.new;
     my $ffmpeg-err = Channel.new;
@@ -33,6 +35,7 @@ multi sub MAIN(*@input, Bool :$verbose) {
     start {
         my $video-duration;
         my $encoding-started-at;
+        my $cursor-up = '';
         react {
             whenever $ffmpeg-err -> [ $stream-num, $_ ] {
                 .say if $verbose;
@@ -45,14 +48,16 @@ multi sub MAIN(*@input, Bool :$verbose) {
 
                 # frame=  203 fps= 11 q=28.0 size=     273kB time=00:00:03.64 bitrate= 614.2kbits/s speed=0.189x
 
-                if / 'time=' (\d\d) ':' (\d\d) ':' (\d\d) '.' (\d\d) \s+ 'bitrate=' \s* (<-[\s]>+) \s / {
+                try if / 'time=' (\d\d) ':' (\d\d) ':' (\d\d) '.' (\d\d) \s+ 'bitrate=' \s* (<-[\s]>+) \s / {
                     my $time-index = Duration.new($0 * 60 * 60 + $1 * 60 + $2 + $3 / 100);
                     my $bitrate = $4;
                     my $elapsed = now - $encoding-started-at;
                     my $remaining-time = $video-duration - $time-index;
                     my $speed = $time-index / $elapsed;
                     my $ETA = (now + $remaining-time / $speed).DateTime;
-                    print "\r", ($time-index / $video-duration * 100).fmt('%.2f%% ETA: '), { slip .dd-mm-yyyy, .hh-mm-ss }($ETA.local), ‚   ‘ ,$bitrate;
+                    print $cursor-up, ($time-index / $video-duration * 100).fmt('%.2f%% ETA: '), { slip .dd-mm-yyyy, .hh-mm-ss }($ETA.local), ‚   ‘ ,$bitrate, $?NL;
+                    once $cursor-up = "\e[A";
+                    $*OUT.flush;
                 }
             }
             whenever $ffmpeg-out {
@@ -64,8 +69,15 @@ multi sub MAIN(*@input, Bool :$verbose) {
     %*ENV<LD_LIBRARY_PATH> ~= ':/usr/local/lib';
     # px{'nice', '/usr/local/bin/ffmpeg', '-i', $input, '-c:v', 'libsvt_av1', '-q', '30', '-sc_detection', '1', '-forced-idr', '1', '-y', $output} |» $ffmpeg-out :stderr($ffmpeg-err);
     
-    px{'nice', '/usr/local/bin/ffmpeg', '-i', $input, '-c:v', 'libsvtav1', '-q', '60', '-preset', '5', '-y', $output} |» $ffmpeg-out :stderr($ffmpeg-err);
     # px{'/usr/bin/ffmpeg', '-i', $input, '-c:v', 'libaom-av1', '-crf', '20', '-b:v', '0', '-strict', 'experimental', '-cpu-used', '1', '-row-mt', '1', '-tiles', '2x2',  '-y', $output} |» $ffmpeg-out :stderr($ffmpeg-err);
+    given $videotype {
+        when movie { 
+            px{'nice', '/usr/local/bin/ffmpeg', '-i', $input, '-c:v', 'libsvtav1', '-q', '60', '-preset', '5', '-y', $output} |» $ffmpeg-out :stderr($ffmpeg-err);
+        }
+        when screencast {
+            px{'nice', '/usr/local/bin/ffmpeg', '-i', $input, '-c:v', 'libsvtav1', '-tbr', 200, '-y', $output} |» $ffmpeg-out :stderr($ffmpeg-err);
+        }
+    }
  
 
     print "\n";
@@ -73,4 +85,7 @@ multi sub MAIN(*@input, Bool :$verbose) {
     px{'stat', '-t', $input} |» my @stat;
     my $birth-time = DateTime.new(@stat[0].split(' ').reverse[1].Int);
     px{'touch', '-d', $birth-time, $output};
+
+    put $input;
+    put $output;
 }
