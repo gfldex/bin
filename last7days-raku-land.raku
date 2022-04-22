@@ -1,1 +1,0 @@
-/home/dex/projects/raku/last7days-raku-land.raku
